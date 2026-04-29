@@ -8,34 +8,37 @@ defmodule Inference.Adapters.ASM do
   @behaviour Inference.Adapter
 
   alias Inference.Adapters.Shared
-  alias Inference.{Client, Error, Request}
+  alias Inference.{Client, Error, Request, StreamEvent}
 
   @impl true
   def complete(%Client{} = client, %Request{} = request) do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
 
     with :ok <- Shared.ensure_dependency(module),
-         target <-
-           request.session || Keyword.get(client.adapter_opts, :session) || client.provider,
+         {target, opts} <- query_target_and_opts(client, request),
          :ok <- validate_target(target),
-         opts <- Shared.request_opts(client, request),
-         {:ok, result} <- call_query(module, target, Request.to_prompt(request), opts) do
-      metadata = %{
-        run_id: Shared.extract_field(result, :run_id),
-        session_id: Shared.extract_field(result, :session_id),
-        cost: Shared.extract_field(result, :cost),
-        duration_ms: Shared.extract_field(result, :duration_ms)
-      }
-
-      {:ok, Shared.response_from_result(result, client, request, metadata: metadata)}
+         {:ok, result} <- call_query(module, target, prompt(request), opts) do
+      {:ok,
+       Shared.response_from_result(result, client, request, metadata: metadata(result, client))}
     else
       {:error, reason} -> {:error, Shared.normalize_error(reason, adapter: __MODULE__)}
     end
   end
 
   @impl true
-  def stream(%Client{} = _client, %Request{} = _request) do
-    {:error, Error.unsupported_capability(:stream, adapter: __MODULE__)}
+  def stream(%Client{} = client, %Request{} = request) do
+    module = Keyword.get(client.adapter_opts, :asm_module, ASM)
+
+    with :ok <- Shared.ensure_dependency(module),
+         {:ok, session, opts, ownership} <- stream_session(module, client, request),
+         {:ok, raw_stream} <- call_stream(module, session, prompt(request), opts) do
+      {:ok,
+       raw_stream
+       |> maybe_close_after_stream(module, session, ownership)
+       |> Stream.flat_map(&stream_events/1)}
+    else
+      {:error, reason} -> {:error, Shared.normalize_error(reason, adapter: __MODULE__)}
+    end
   end
 
   defp validate_target(nil),
@@ -50,5 +53,139 @@ defmodule Inference.Adapters.ASM do
     else
       {:error, Error.missing_dependency(module, function: :query)}
     end
+  end
+
+  defp query_target_and_opts(%Client{} = client, %Request{} = request) do
+    opts = query_opts(client, request)
+
+    case request.session || Keyword.get(client.adapter_opts, :session) do
+      session when is_pid(session) ->
+        {session, opts}
+
+      session_id when is_binary(session_id) and session_id != "" ->
+        {client.provider, Keyword.put(opts, :session_id, session_id)}
+
+      _session ->
+        {client.provider, opts}
+    end
+  end
+
+  defp call_stream(module, session, prompt, opts) do
+    if function_exported?(module, :stream, 3) do
+      {:ok, module.stream(session, prompt, opts)}
+    else
+      {:error, Error.missing_dependency(module, function: :stream)}
+    end
+  end
+
+  defp stream_session(module, %Client{} = client, %Request{} = request) do
+    opts = stream_opts(client, request)
+
+    case request.session || Keyword.get(client.adapter_opts, :session) do
+      session when is_pid(session) ->
+        {:ok, session, opts, :external}
+
+      session_id when is_binary(session_id) and session_id != "" ->
+        start_managed_stream_session(module, client, Keyword.put(opts, :session_id, session_id))
+
+      _session ->
+        start_managed_stream_session(module, client, opts)
+    end
+  end
+
+  defp start_managed_stream_session(module, %Client{} = client, opts) do
+    if function_exported?(module, :start_session, 1) do
+      start_opts =
+        opts
+        |> Keyword.put_new(:provider, client.provider)
+        |> Keyword.merge(Keyword.get(client.adapter_opts, :session_opts, []))
+
+      stream_opts = Keyword.drop(opts, [:provider, :session_id, :name, :options])
+
+      with {:ok, session} <- module.start_session(start_opts) do
+        {:ok, session, stream_opts, :managed}
+      end
+    else
+      {:error, Error.missing_dependency(module, function: :start_session)}
+    end
+  end
+
+  defp maybe_close_after_stream(stream, module, session, :managed) do
+    Stream.transform(
+      stream,
+      fn -> :ok end,
+      fn event, acc -> {[event], acc} end,
+      fn _acc ->
+        if function_exported?(module, :stop_session, 1) do
+          module.stop_session(session)
+        end
+      end
+    )
+  end
+
+  defp maybe_close_after_stream(stream, _module, _session, :external), do: stream
+
+  defp query_opts(%Client{} = client, %Request{} = request) do
+    client
+    |> common_opts(request)
+    |> Keyword.merge(Keyword.get(client.adapter_opts, :query_opts, []))
+  end
+
+  defp stream_opts(%Client{} = client, %Request{} = request) do
+    client
+    |> common_opts(request)
+    |> Keyword.merge(Keyword.get(client.adapter_opts, :stream_opts, []))
+  end
+
+  defp common_opts(%Client{} = client, %Request{} = request) do
+    client
+    |> Shared.request_opts(request)
+    |> Keyword.drop([:temperature, :top_p, :max_tokens, :response_format])
+    |> rename_timeout()
+  end
+
+  defp rename_timeout(opts) do
+    case Keyword.pop(opts, :timeout) do
+      {nil, renamed} -> renamed
+      {timeout, renamed} -> Keyword.put_new(renamed, :transport_timeout_ms, timeout)
+    end
+  end
+
+  defp metadata(result, %Client{} = client) do
+    result_metadata = Shared.extract_field(result, :metadata) || %{}
+
+    Map.merge(result_metadata, %{
+      run_id: Shared.extract_field(result, :run_id),
+      session_id: Shared.extract_field(result, :session_id),
+      session_id_from_cli: Shared.extract_field(result, :session_id_from_cli),
+      cost: Shared.extract_field(result, :cost),
+      duration_ms: Shared.extract_field(result, :duration_ms),
+      lane: Keyword.get(client.defaults, :lane)
+    })
+  end
+
+  defp stream_events(chunk) when is_binary(chunk), do: delta(chunk)
+
+  defp stream_events(%{__struct__: module} = chunk) do
+    text =
+      if function_exported?(module, :assistant_text, 1) do
+        module.assistant_text(chunk)
+      else
+        Shared.extract_text(chunk)
+      end
+
+    delta(text)
+  end
+
+  defp stream_events(chunk) when is_map(chunk), do: chunk |> Shared.extract_text() |> delta()
+  defp stream_events(_chunk), do: []
+
+  defp delta(text) when is_binary(text) and text != "",
+    do: [%StreamEvent{type: :delta, data: text}]
+
+  defp delta(_text), do: []
+
+  defp prompt(%Request{options: options} = request) do
+    Keyword.get(options, :prompt) || Request.to_prompt(request)
   end
 end

@@ -48,3 +48,16 @@ The initial package includes:
 Only the mock adapter is fully self-contained. Other adapters require the
 consuming application or live example script to install the underlying provider
 dependency.
+
+Adapters may also honor adapter-specific entries in `Inference.Request.options`.
+The compatibility adapters currently use this for migration support:
+
+- `Inference.Adapters.ReqLLM` accepts `:prompt` to preserve caller-native prompt
+  shape, `:api_key` for per-call credentials, and `:tools` for portable tool
+  structs.
+- `Inference.Adapters.ASM` accepts `:prompt` to preserve raw CLI prompt text and
+  converts string sessions to ASM `:session_id` options.
+
+These options are intentionally adapter-bound. Core application code should
+prefer the stable request fields unless it is implementing a compatibility
+wrapper for an existing API.

@@ -32,13 +32,14 @@ defmodule Inference.Adapters.Shared do
       Keyword.get_lazy(opts, :finish_reason, fn -> extract_field(result, :finish_reason) end)
 
     metadata = Keyword.get(opts, :metadata, %{})
+    object = Keyword.get_lazy(opts, :object, fn -> extract_field(result, :object) end)
 
     Response.new(
       id: extract_field(result, :id),
       provider: client.provider,
       model: request.model || client.model || model_id(extract_field(result, :model)),
       text: text,
-      object: extract_field(result, :object),
+      object: object,
       tool_calls: extract_field(result, :tool_calls) || [],
       usage: usage,
       finish_reason: finish_reason || extract_field(result, :stop_reason),

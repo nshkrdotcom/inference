@@ -6,3 +6,7 @@
 - Added semantic inference contracts.
 - Added mock and optional provider adapter modules.
 - Added live-gated provider examples.
+- Expanded ReqLLM compatibility with structured object generation, provider key
+  aliases, and portable tool conversion.
+- Expanded ASM compatibility with managed streaming sessions and string-session
+  routing.
