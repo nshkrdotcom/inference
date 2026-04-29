@@ -40,10 +40,11 @@ elixir examples/live_reqllm_next.exs
 
 ## ReqLLM Compatibility
 
+Installs the latest compatible Hex package, currently `req_llm ~> 1.10`.
+
 ```bash
-export INFERENCE_REQ_LLM_PATH=/path/to/req_llm
-export GEMINI_API_KEY=...
-export INFERENCE_REQ_LLM_PROVIDER=gemini
+export GEMINI_API_KEY=... # or GOOGLE_API_KEY=...
+export INFERENCE_REQ_LLM_PROVIDER=google
 export INFERENCE_REQ_LLM_MODEL=gemini-3.1-flash-lite-preview
 elixir examples/live_req_llm.exs
 ```

@@ -49,6 +49,11 @@ Use `Inference.Adapters.ReqLlmNext`.
 `Inference.Adapters.ReqLLM` is for compatibility with existing users. Prefer
 ReqLlmNext for new broad hosted-provider work.
 
+```elixir
+{:inference, "~> 0.1"},
+{:req_llm, "~> 1.10"}
+```
+
 ## Missing Dependencies
 
 If an adapter is selected but its underlying provider module is unavailable, the

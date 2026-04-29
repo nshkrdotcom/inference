@@ -1,23 +1,18 @@
-req_llm_path = System.get_env("INFERENCE_REQ_LLM_PATH")
+case {System.get_env("GOOGLE_API_KEY"), System.get_env("GEMINI_API_KEY")} do
+  {nil, api_key} when is_binary(api_key) and api_key != "" ->
+    System.put_env("GOOGLE_API_KEY", api_key)
 
-if is_nil(req_llm_path) do
-  IO.puts("""
-  ReqLLM live example requires INFERENCE_REQ_LLM_PATH to point at a local req_llm checkout.
-
-      export INFERENCE_REQ_LLM_PATH=/path/to/req_llm
-      elixir examples/live_req_llm.exs
-  """)
-
-  System.halt(1)
+  _ ->
+    :ok
 end
 
 Mix.install([
   {:inference, path: Path.expand("../apps/inference", __DIR__)},
-  {:req_llm, path: Path.expand(req_llm_path)}
+  {:req_llm, "~> 1.10"}
 ])
 
 provider =
-  System.get_env("INFERENCE_REQ_LLM_PROVIDER", "gemini")
+  System.get_env("INFERENCE_REQ_LLM_PROVIDER", "google")
   |> String.to_atom()
 
 model = System.get_env("INFERENCE_REQ_LLM_MODEL", "gemini-3.1-flash-lite-preview")
