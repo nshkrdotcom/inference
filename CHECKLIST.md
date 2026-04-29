@@ -77,4 +77,4 @@ Scope: work only in this repository. The real package is
 - [x] `cd apps/inference && mix credo --strict`
 - [x] `cd apps/inference && mix dialyzer`
 - [x] `cd apps/inference && mix docs`
-- [x] disabled live examples exit before provider calls
+- [x] live examples run directly without an extra enablement gate

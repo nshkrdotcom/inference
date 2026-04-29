@@ -1,15 +1,10 @@
-unless System.get_env("INFERENCE_LIVE_EXAMPLES") == "1" do
-  IO.puts("live example disabled; set INFERENCE_LIVE_EXAMPLES=1 to run")
-  System.halt(0)
-end
-
 Mix.install([
   {:inference, path: Path.expand("../apps/inference", __DIR__)},
   {:agent_session_manager, path: Path.expand("../../agent_session_manager", __DIR__)}
 ])
 
 provider =
-  System.get_env("INFERENCE_ASM_PROVIDER", "codex")
+  System.get_env("INFERENCE_ASM_PROVIDER", "gemini")
   |> String.to_atom()
 
 prompt = System.get_env("INFERENCE_ASM_PROMPT", "Say hello from Agent Session Manager.")
@@ -18,7 +13,7 @@ client =
   Inference.Client.new!(
     adapter: Inference.Adapters.ASM,
     provider: provider,
-    model: System.get_env("INFERENCE_ASM_MODEL"),
+    model: System.get_env("INFERENCE_ASM_MODEL", "gemini-3.1-flash-lite-preview"),
     defaults: [
       lane: System.get_env("INFERENCE_ASM_LANE", "auto") |> String.to_atom()
     ]

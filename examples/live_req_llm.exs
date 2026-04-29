@@ -1,8 +1,3 @@
-unless System.get_env("INFERENCE_LIVE_EXAMPLES") == "1" do
-  IO.puts("live example disabled; set INFERENCE_LIVE_EXAMPLES=1 to run")
-  System.halt(0)
-end
-
 req_llm_path = System.get_env("INFERENCE_REQ_LLM_PATH")
 
 if is_nil(req_llm_path) do
@@ -10,7 +5,6 @@ if is_nil(req_llm_path) do
   ReqLLM live example requires INFERENCE_REQ_LLM_PATH to point at a local req_llm checkout.
 
       export INFERENCE_REQ_LLM_PATH=/path/to/req_llm
-      export INFERENCE_LIVE_EXAMPLES=1
       elixir examples/live_req_llm.exs
   """)
 
@@ -23,10 +17,10 @@ Mix.install([
 ])
 
 provider =
-  System.get_env("INFERENCE_REQ_LLM_PROVIDER", "openai")
+  System.get_env("INFERENCE_REQ_LLM_PROVIDER", "gemini")
   |> String.to_atom()
 
-model = System.get_env("INFERENCE_REQ_LLM_MODEL", "gpt-4o-mini")
+model = System.get_env("INFERENCE_REQ_LLM_MODEL", "gemini-3.1-flash-lite-preview")
 prompt = System.get_env("INFERENCE_REQ_LLM_PROMPT", "Say hello from ReqLLM.")
 
 client =

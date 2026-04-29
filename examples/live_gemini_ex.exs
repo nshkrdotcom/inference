@@ -1,15 +1,10 @@
-unless System.get_env("INFERENCE_LIVE_EXAMPLES") == "1" do
-  IO.puts("live example disabled; set INFERENCE_LIVE_EXAMPLES=1 to run")
-  System.halt(0)
-end
-
 Mix.install([
   {:inference, path: Path.expand("../apps/inference", __DIR__)},
   {:gemini, path: Path.expand("../../gemini_ex", __DIR__)}
 ])
 
 api_key = System.fetch_env!("GEMINI_API_KEY")
-model = System.get_env("INFERENCE_GEMINI_MODEL", "gemini-2.0-flash")
+model = System.get_env("INFERENCE_GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
 
 prompt =
   System.get_env("INFERENCE_GEMINI_PROMPT", "Say hello from GeminiEx in one short sentence.")

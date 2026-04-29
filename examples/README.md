@@ -2,28 +2,17 @@
 
 Tests in this repository use mocks and never call live providers.
 
-Files in this directory are live examples. They are intentionally gated and can
-talk to real provider/runtime libraries when you opt in with environment
-variables and install the matching local provider repository.
+Files in this directory are live examples. They run directly and attempt real
+provider/runtime calls. Configure the provider credentials required by the
+underlying library before running them.
 
 Run examples from the repository root with `elixir`, not `mix test`.
-
-## Common Gate
-
-Every live example requires:
-
-```bash
-export INFERENCE_LIVE_EXAMPLES=1
-```
-
-Without that gate, examples exit before making provider calls.
 
 ## GeminiEx
 
 Requires the local `gemini_ex` repository and a Gemini API key:
 
 ```bash
-export INFERENCE_LIVE_EXAMPLES=1
 export GEMINI_API_KEY=...
 elixir examples/live_gemini_ex.exs
 ```
@@ -34,8 +23,9 @@ Requires the local `agent_session_manager` repository. Provider/session details
 are passed through to ASM:
 
 ```bash
-export INFERENCE_LIVE_EXAMPLES=1
-export INFERENCE_ASM_PROVIDER=codex
+export GEMINI_API_KEY=...
+export INFERENCE_ASM_PROVIDER=gemini
+export INFERENCE_ASM_MODEL=gemini-3.1-flash-lite-preview
 export INFERENCE_ASM_PROMPT="Say hello from ASM"
 elixir examples/live_asm.exs
 ```
@@ -45,11 +35,10 @@ elixir examples/live_asm.exs
 Requires a compatible `req_llm` dependency to be available to the script.
 
 ```bash
-export INFERENCE_LIVE_EXAMPLES=1
 export INFERENCE_REQ_LLM_PATH=/path/to/req_llm
-export OPENAI_API_KEY=...
-export INFERENCE_REQ_LLM_PROVIDER=openai
-export INFERENCE_REQ_LLM_MODEL=gpt-4o-mini
+export GEMINI_API_KEY=...
+export INFERENCE_REQ_LLM_PROVIDER=gemini
+export INFERENCE_REQ_LLM_MODEL=gemini-3.1-flash-lite-preview
 elixir examples/live_req_llm.exs
 ```
 
@@ -58,10 +47,9 @@ elixir examples/live_req_llm.exs
 Requires the local `reqllm_next` repository or an available package.
 
 ```bash
-export INFERENCE_LIVE_EXAMPLES=1
-export OPENAI_API_KEY=...
-export INFERENCE_REQLLM_NEXT_PROVIDER=openai
-export INFERENCE_REQLLM_NEXT_MODEL=gpt-4o-mini
+export GEMINI_API_KEY=...
+export INFERENCE_REQLLM_NEXT_PROVIDER=google
+export INFERENCE_REQLLM_NEXT_MODEL=gemini-3.1-flash-lite-preview
 elixir examples/live_reqllm_next.exs
 ```
 
