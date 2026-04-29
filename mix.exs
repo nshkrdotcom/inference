@@ -3,6 +3,7 @@ defmodule InferenceWorkspace.MixProject do
 
   def project do
     [
+      app: :inference_workspace,
       version: "0.1.0",
       apps_path: "apps",
       deps: deps()
@@ -10,6 +11,8 @@ defmodule InferenceWorkspace.MixProject do
   end
 
   defp deps do
-    []
+    [
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+    ]
   end
 end
