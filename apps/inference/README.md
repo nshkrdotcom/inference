@@ -17,9 +17,38 @@
 requests, responses, clients, adapters, capabilities, trace metadata,
 redaction, and adapter conformance tests.
 
+It is intentionally small. The package gives application code one stable shape
+for prompts, responses, client configuration, trace summaries, and adapter
+contracts. Provider SDKs, local agent runtimes, governed execution systems, and
+transport stacks remain outside the core contract.
+
 It is not an Execution Plane wrapper. Execution Plane remains the lower runtime
 substrate. `inference` is the product-facing provider/model boundary used by
 standalone libraries such as `trinity_coordinator` and `gepa_ex`.
+
+## Installation
+
+Add `:inference` to the application that wants the shared contract:
+
+```elixir
+def deps do
+  [
+    {:inference, "~> 0.1"}
+  ]
+end
+```
+
+Provider-specific dependencies are opt-in. For example:
+
+```elixir
+def deps do
+  [
+    {:inference, "~> 0.1"},
+    {:gemini, "..."},
+    {:agent_session_manager, "..."}
+  ]
+end
+```
 
 The initial package ships adapter modules, not separate adapter packages:
 
@@ -51,5 +80,34 @@ client =
 Inference.Response.text(response)
 ```
 
-Live provider examples are documented in `guides/live_examples.md` and in the
-repository-level `examples/README.md`.
+Requests can also be built explicitly:
+
+```elixir
+{:ok, request} =
+  Inference.Request.from_messages([
+    %{role: :system, content: "Be concise."},
+    %{role: :user, content: "Summarize the result."}
+  ])
+
+{:ok, response} = Inference.complete(client, request)
+```
+
+## Design Rules
+
+- The default test path is deterministic and mock-only.
+- Live provider calls are examples, not test requirements.
+- Provider dependencies are installed by the consuming application.
+- Adapter modules translate to and from provider libraries; they do not hide
+  provider setup, credentials, or runtime requirements.
+- Jido governed execution is owned by `jido_integration`, which can implement
+  `Inference.Adapter` from the Jido side.
+
+## Guides
+
+- [Architecture](architecture.html)
+- [Requests and Responses](requests-and-responses.html)
+- [Clients and Adapters](clients-and-adapters.html)
+- [Optional Providers](optional-providers.html)
+- [Adapter Testkit](adapter-testkit.html)
+- [Live Examples](live-examples.html)
+- [Jido Integration Ownership](jido-integration.html)
