@@ -17,7 +17,7 @@ Install the Gemini SDK in the consuming app:
 
 ```elixir
 {:inference, "~> 0.1"},
-{:gemini, "..."}
+{:gemini_ex, "..."}
 ```
 
 Configure credentials in the SDK, then use `Inference.Adapters.GeminiEx`.

@@ -1,6 +1,6 @@
 Mix.install([
   {:inference, path: Path.expand("../apps/inference", __DIR__)},
-  {:gemini, path: Path.expand("../../gemini_ex", __DIR__)}
+  {:gemini_ex, path: Path.expand("../../gemini_ex", __DIR__)}
 ])
 
 api_key = System.fetch_env!("GEMINI_API_KEY")
