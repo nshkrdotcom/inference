@@ -33,8 +33,14 @@ defmodule InferenceTest do
   end
 
   defmodule FakeReqLLM do
-    def generate_text(model_spec, prompt, _opts) do
-      {:ok, %{id: "req-llm-1", text: "req #{inspect(model_spec)}: #{prompt}"}}
+    def generate_text(model_spec, prompt, opts) do
+      {:ok,
+       %{
+         id: "req-llm-1",
+         text: "req #{inspect(model_spec)}: #{prompt}",
+         model_spec: model_spec,
+         opts: opts
+       }}
     end
   end
 
@@ -143,8 +149,11 @@ defmodule InferenceTest do
         adapter_opts: [req_llm_module: FakeReqLLM]
       )
 
-    assert {:ok, response} = Inference.complete(client, "hello")
+    assert {:ok, response} = Inference.complete(client, "hello", temperature: 0.2)
     assert response.text =~ "req %{"
+    assert response.raw.model_spec == %{provider: :openai, id: "gpt-test"}
+    assert response.raw.opts[:temperature] == 0.2
+    refute Keyword.has_key?(response.raw.opts, :model)
   end
 
   test "external adapter returns missing dependency when module is absent" do

@@ -14,7 +14,7 @@ defmodule Inference.Adapters.ReqLLM do
 
     with :ok <- Shared.ensure_dependency(module),
          model_spec when not is_nil(model_spec) <- model_spec(client, request),
-         opts <- Shared.request_opts(client, request),
+         opts <- request_opts(client, request),
          {:ok, result} <- call_generate_text(module, model_spec, Request.to_prompt(request), opts) do
       {:ok, Shared.response_from_result(result, client, request)}
     else
@@ -31,6 +31,12 @@ defmodule Inference.Adapters.ReqLLM do
   defp model_spec(%Client{} = client, %Request{} = request) do
     Keyword.get(client.adapter_opts, :model_spec) ||
       %{provider: client.provider, id: request.model || client.model}
+  end
+
+  defp request_opts(%Client{} = client, %Request{} = request) do
+    client
+    |> Shared.request_opts(request)
+    |> Keyword.delete(:model)
   end
 
   defp call_generate_text(module, model_spec, prompt, opts) do
