@@ -8,7 +8,17 @@ defmodule InferenceTest do
   end
 
   defmodule FakeASMResult do
-    defstruct [:id, :text, :usage, :finish_reason, :run_id, :session_id, :duration_ms, :cost]
+    defstruct [
+      :id,
+      :text,
+      :usage,
+      :finish_reason,
+      :run_id,
+      :session_id,
+      :duration_ms,
+      :cost,
+      :metadata
+    ]
   end
 
   defmodule FakeASMChunk do
@@ -27,7 +37,8 @@ defmodule InferenceTest do
          duration_ms: 12,
          cost: %{usd: 0},
          usage: %{input_tokens: 1, output_tokens: 2},
-         finish_reason: opts[:finish_reason] || :stop
+         finish_reason: opts[:finish_reason] || :stop,
+         metadata: %{opts: opts}
        }}
     end
 
@@ -182,6 +193,20 @@ defmodule InferenceTest do
     assert response.metadata.run_id == "run-1"
   end
 
+  test "asm adapter uses internal prompt override without forwarding it as provider option" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [asm_module: FakeASM]
+      )
+
+    assert {:ok, response} = Inference.complete(client, "hello", options: [prompt: "raw prompt"])
+    assert response.text =~ "asm codex: raw prompt"
+    refute Keyword.has_key?(response.metadata.opts, :prompt)
+  end
+
   test "reqllm next adapter works with fake module" do
     client =
       Client.new!(
@@ -301,6 +326,7 @@ defmodule InferenceTest do
     assert_received {:start_session, opts}
     assert opts[:provider] == :codex
     assert opts[:session_id] == "session-name"
+    refute Keyword.has_key?(opts, :prompt)
     assert opts[:lane] == :core
     assert_received {:stop_session, pid} when pid == self()
   end

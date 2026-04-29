@@ -53,11 +53,18 @@ Adapters may also honor adapter-specific entries in `Inference.Request.options`.
 The compatibility adapters currently use this for migration support:
 
 - `Inference.Adapters.ReqLLM` accepts `:prompt` to preserve caller-native prompt
-  shape, `:api_key` for per-call credentials, and `:tools` for portable tool
-  structs.
+  shape, `:api_key` for per-call credentials, `:tools` for portable tool
+  structs, and `:tool_choice` for provider tool-selection controls.
 - `Inference.Adapters.ASM` accepts `:prompt` to preserve raw CLI prompt text and
-  converts string sessions to ASM `:session_id` options.
+  converts string sessions to ASM `:session_id` options. `:prompt` is internal
+  to the inference adapter and is removed before query, session, or stream
+  options are passed to Agent Session Manager.
 
 These options are intentionally adapter-bound. Core application code should
 prefer the stable request fields unless it is implementing a compatibility
 wrapper for an existing API.
+
+Adapters should propagate provider usage, cost, finish reason, and tool-call
+fields onto `Inference.Response` whenever the underlying runtime reports them.
+The shared response helper extracts those fields from map or struct provider
+results.

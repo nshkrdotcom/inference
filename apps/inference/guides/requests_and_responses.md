@@ -45,9 +45,13 @@ The response carries:
 - provider and model identifiers;
 - normalized text;
 - optional object output and tool calls;
-- usage and finish reason;
+- usage, cost, and finish reason;
 - raw provider result for in-memory use;
 - metadata and trace summary.
 
 Do not persist raw provider responses by default. Persist redacted trace and
 summary fields instead.
+
+`cost` is provider-reported only. Adapters should copy cost data when the
+underlying provider returns it, but they must not invent cost values for
+providers that do not expose them.

@@ -140,7 +140,7 @@ defmodule Inference.Adapters.ASM do
   defp common_opts(%Client{} = client, %Request{} = request) do
     client
     |> Shared.request_opts(request)
-    |> Keyword.drop([:temperature, :top_p, :max_tokens, :response_format])
+    |> Keyword.drop([:temperature, :top_p, :max_tokens, :response_format, :prompt])
     |> rename_timeout()
   end
 
