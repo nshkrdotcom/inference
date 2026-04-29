@@ -34,8 +34,8 @@ application code
   -> provider SDK or local runtime
 ```
 
-For governed deployments, Jido Integration should implement the adapter from
-its own repository:
+For governed deployments, Jido Integration implements the adapter from its own
+repository:
 
 ```text
 application code

@@ -62,8 +62,9 @@ Provider-specific dependencies are opt-in dependencies in the consuming
 application. For example, Gemini users add both `:inference` and `:gemini_ex`;
 core/mock users add only `:inference`.
 
-Jido governed execution is future work owned by `jido_integration`, where a
-Jido-owned module can implement `Inference.Adapter`.
+Jido governed execution is owned by `jido_integration`. The Jido-owned adapter
+implements `Inference.Adapter` from that repository and translates shared
+requests into governed control-plane execution.
 
 ## Usage
 
@@ -99,7 +100,7 @@ Requests can also be built explicitly:
 - Provider dependencies are installed by the consuming application.
 - Adapter modules translate to and from provider libraries; they do not hide
   provider setup, credentials, or runtime requirements.
-- Jido governed execution is owned by `jido_integration`, which can implement
+- Jido governed execution is owned by `jido_integration`, which implements
   `Inference.Adapter` from the Jido side.
 
 ## Guides

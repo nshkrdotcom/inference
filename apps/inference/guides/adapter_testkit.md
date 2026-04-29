@@ -35,3 +35,8 @@ The testkit covers:
 
 Default tests should use fake provider modules. Live provider tests belong in
 explicitly gated examples or smoke-test suites.
+
+Adapter-owning projects should add their own tests for option precedence and
+response-field preservation when they depend on adapter-specific options. The
+shared testkit is a floor, not proof that a governed adapter preserved every
+downstream contract field.

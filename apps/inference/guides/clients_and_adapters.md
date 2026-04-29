@@ -68,3 +68,18 @@ Adapters should propagate provider usage, cost, finish reason, and tool-call
 fields onto `Inference.Response` whenever the underlying runtime reports them.
 The shared response helper extracts those fields from map or struct provider
 results.
+
+## Contract-Preservation Checklist
+
+Use this checklist before changing a shared adapter boundary:
+
+- `Inference.Client.defaults` are merged into request execution options.
+- `Inference.Request.options` are accepted only for adapter-owned semantics.
+- Request-level options override client defaults.
+- Internal compatibility options are consumed internally or documented as
+  forwarded provider options.
+- Usage, cost, finish reason, object output, and tool calls are copied when the
+  provider/runtime reports them.
+- Provider-reported values are never invented by the shared package.
+- Adapter tests prove the option precedence and response-field propagation that
+  downstream governed adapters depend on.
