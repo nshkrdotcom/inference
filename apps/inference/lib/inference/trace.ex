@@ -12,6 +12,7 @@ defmodule Inference.Trace do
     :duration_ms,
     :finish_reason,
     :usage,
+    :cost,
     :error,
     metadata: %{}
   ]
@@ -25,6 +26,7 @@ defmodule Inference.Trace do
           duration_ms: non_neg_integer() | nil,
           finish_reason: atom() | String.t() | nil,
           usage: map() | nil,
+          cost: map() | number() | nil,
           error: atom() | nil,
           metadata: map()
         }
@@ -42,6 +44,7 @@ defmodule Inference.Trace do
       duration_ms: attrs[:duration_ms],
       finish_reason: attrs[:finish_reason],
       usage: attrs[:usage],
+      cost: attrs[:cost],
       error: attrs[:error],
       metadata: attrs[:metadata] || %{}
     }

@@ -27,6 +27,7 @@ defmodule Inference.Adapters.Shared do
   def response_from_result(result, %Client{} = client, %Request{} = request, opts \\ []) do
     text = Keyword.get_lazy(opts, :text, fn -> extract_text(result) end)
     usage = Keyword.get_lazy(opts, :usage, fn -> extract_field(result, :usage) end)
+    cost = Keyword.get_lazy(opts, :cost, fn -> extract_field(result, :cost) end)
 
     finish_reason =
       Keyword.get_lazy(opts, :finish_reason, fn -> extract_field(result, :finish_reason) end)
@@ -42,6 +43,7 @@ defmodule Inference.Adapters.Shared do
       object: object,
       tool_calls: extract_field(result, :tool_calls) || [],
       usage: usage,
+      cost: cost,
       finish_reason: finish_reason || extract_field(result, :stop_reason),
       raw: result,
       metadata: metadata,
@@ -54,6 +56,7 @@ defmodule Inference.Adapters.Shared do
           session: request.session,
           finish_reason: finish_reason,
           usage: usage,
+          cost: cost,
           metadata: metadata
         )
     )

@@ -11,6 +11,12 @@ defmodule InferenceTest do
     defstruct [:id, :text, :usage, :finish_reason, :run_id, :session_id, :duration_ms, :cost]
   end
 
+  defmodule FakeASMChunk do
+    defstruct [:content]
+
+    def assistant_text(%__MODULE__{content: content}), do: content
+  end
+
   defmodule FakeASM do
     def query(provider, prompt, opts) do
       {:ok,
@@ -30,7 +36,12 @@ defmodule InferenceTest do
       {:ok, self()}
     end
 
-    def stream(session, _prompt, _opts) when is_pid(session), do: [%{text: "a"}, "b"]
+    def stream(session, _prompt, opts) when is_pid(session) do
+      case opts[:shape] do
+        :assistant_struct -> [%FakeASMChunk{content: "struct-delta"}, %{message: "map-message"}]
+        _other -> [%{text: "a"}, "b"]
+      end
+    end
 
     def stop_session(session) do
       send(self(), {:stop_session, session})
@@ -55,6 +66,9 @@ defmodule InferenceTest do
        %{
          id: "req-llm-1",
          text: "req #{inspect(model_spec)}: #{prompt}",
+         usage: %{input_tokens: 1, output_tokens: 2},
+         cost: %{usd: 0.001},
+         tool_calls: [%{id: "call-1", name: "lookup", arguments: %{"query" => "hello"}}],
          model_spec: model_spec,
          opts: opts
        }}
@@ -197,6 +211,28 @@ defmodule InferenceTest do
     refute Keyword.has_key?(response.raw.opts, :model)
   end
 
+  test "req llm compatibility adapter propagates usage, cost, and tool call fields" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: :openai,
+        model: "gpt-test",
+        adapter_opts: [req_llm_module: FakeReqLLM]
+      )
+
+    assert {:ok, response} =
+             Inference.complete(client, "hello", options: [tool_choice: :required])
+
+    assert response.usage == %{input_tokens: 1, output_tokens: 2}
+    assert response.cost == %{usd: 0.001}
+
+    assert response.tool_calls == [
+             %{id: "call-1", name: "lookup", arguments: %{"query" => "hello"}}
+           ]
+
+    assert response.raw.opts[:tool_choice] == :required
+  end
+
   test "req llm adapter supports structured object generation and provider keys" do
     client =
       Client.new!(
@@ -243,8 +279,11 @@ defmodule InferenceTest do
       run: fn args, _context -> {:ok, args} end
     }
 
-    assert {:ok, response} = Inference.complete(client, "hello", options: [tools: [tool]])
+    assert {:ok, response} =
+             Inference.complete(client, "hello", options: [tools: [tool], tool_choice: :auto])
+
     assert [%ReqLLM.Tool{name: "lookup"}] = response.raw.opts[:tools]
+    assert response.raw.opts[:tool_choice] == :auto
   end
 
   test "asm adapter streams with managed sessions and closes them" do
@@ -263,6 +302,55 @@ defmodule InferenceTest do
     assert opts[:provider] == :codex
     assert opts[:session_id] == "session-name"
     assert opts[:lane] == :core
+    assert_received {:stop_session, pid} when pid == self()
+  end
+
+  test "asm adapter closes managed stream sessions when consumers halt early" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex-model",
+        defaults: [lane: :core],
+        adapter_opts: [asm_module: FakeASM, session: "session-name"]
+      )
+
+    assert {:ok, stream} = Inference.stream(client, "hello")
+    assert [%Inference.StreamEvent{data: "a"}] = Enum.take(stream, 1)
+    assert_received {:stop_session, pid} when pid == self()
+  end
+
+  test "asm adapter does not close externally supplied stream sessions" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex-model",
+        defaults: [lane: :core],
+        adapter_opts: [asm_module: FakeASM, session: self()]
+      )
+
+    assert {:ok, stream} = Inference.stream(client, "hello")
+    assert Enum.map(stream, & &1.data) == ["a", "b"]
+    refute_received {:stop_session, _pid}
+  end
+
+  test "asm adapter normalizes assistant structs and message maps into stream deltas" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex-model",
+        defaults: [lane: :core],
+        adapter_opts: [
+          asm_module: FakeASM,
+          session: "session-name",
+          stream_opts: [shape: :assistant_struct]
+        ]
+      )
+
+    assert {:ok, stream} = Inference.stream(client, "hello")
+    assert Enum.map(stream, & &1.data) == ["struct-delta", "map-message"]
     assert_received {:stop_session, pid} when pid == self()
   end
 
