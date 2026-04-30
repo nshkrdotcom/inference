@@ -27,8 +27,36 @@ defmodule InferenceTest do
     def assistant_text(%__MODULE__{content: content}), do: content
   end
 
+  defmodule FakeASMOptions do
+    @provider_native_keys [:system_prompt, :settings, :host_tools, :dynamic_tools, :env, :args]
+
+    def preflight(provider, opts, mode: :strict_common) do
+      send(self(), {:asm_preflight, provider, opts})
+
+      case Enum.find(@provider_native_keys, &Keyword.has_key?(opts, &1)) do
+        nil ->
+          {:ok,
+           %{
+             provider: provider,
+             mode: :strict_common,
+             common: Map.new(opts),
+             session: %{},
+             partial: %{},
+             provider_native_legacy: %{},
+             rejected: [],
+             warnings: []
+           }}
+
+        key ->
+          {:error, Error.invalid(:asm_options, "ASM strict preflight rejected #{inspect(key)}")}
+      end
+    end
+  end
+
   defmodule FakeASM do
     def query(provider, prompt, opts) do
+      send(self(), {:asm_query, provider, prompt, opts})
+
       {:ok,
        %FakeASMResult{
          text: "asm #{provider}: #{prompt}",
@@ -185,12 +213,15 @@ defmodule InferenceTest do
         adapter: Inference.Adapters.ASM,
         provider: :codex,
         model: "codex",
-        adapter_opts: [asm_module: FakeASM]
+        adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
       )
 
     assert {:ok, response} = Inference.complete(client, "hello")
     assert response.text =~ "asm codex"
     assert response.metadata.run_id == "run-1"
+    assert_received {:asm_preflight, :codex, opts}
+    assert opts[:model] == "codex"
+    refute Keyword.has_key?(opts, :provider)
   end
 
   test "asm adapter uses internal prompt override without forwarding it as provider option" do
@@ -199,12 +230,69 @@ defmodule InferenceTest do
         adapter: Inference.Adapters.ASM,
         provider: :codex,
         model: "codex",
-        adapter_opts: [asm_module: FakeASM]
+        adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
       )
 
     assert {:ok, response} = Inference.complete(client, "hello", options: [prompt: "raw prompt"])
     assert response.text =~ "asm codex: raw prompt"
     refute Keyword.has_key?(response.metadata.opts, :prompt)
+  end
+
+  test "asm adapter rejects tool requests until ASM has a common tool contract" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
+      )
+
+    assert {:error, %Error{category: :unsupported_capability} = error} =
+             Inference.complete(client, "hello", options: [tools: [%{name: "lookup"}]])
+
+    assert error.message =~ "ASM adapter does not support inference tools"
+    refute_received {:asm_query, _provider, _prompt, _opts}
+  end
+
+  test "asm adapter rejects provider-native tool keys from adapter query opts" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [
+          asm_module: FakeASM,
+          asm_options_module: FakeASMOptions,
+          query_opts: [dynamic_tools: [%{name: "lookup"}]]
+        ]
+      )
+
+    assert {:error, %Error{category: :unsupported_capability} = error} =
+             Inference.complete(client, "hello")
+
+    assert error.message =~ ":dynamic_tools"
+    refute_received {:asm_query, _provider, _prompt, _opts}
+  end
+
+  test "asm adapter routes generic options through ASM strict preflight" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :gemini,
+        model: "gemini-model",
+        adapter_opts: [
+          asm_module: FakeASM,
+          asm_options_module: FakeASMOptions,
+          query_opts: [system_prompt: "provider-native"]
+        ]
+      )
+
+    assert {:error, %Error{category: :invalid, reason: :asm_options}} =
+             Inference.complete(client, "hello")
+
+    assert_received {:asm_preflight, :gemini, opts}
+    assert opts[:system_prompt] == "provider-native"
+    refute_received {:asm_query, _provider, _prompt, _opts}
   end
 
   test "reqllm next adapter works with fake module" do
@@ -318,7 +406,11 @@ defmodule InferenceTest do
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],
-        adapter_opts: [asm_module: FakeASM, session: "session-name"]
+        adapter_opts: [
+          asm_module: FakeASM,
+          asm_options_module: FakeASMOptions,
+          session: "session-name"
+        ]
       )
 
     assert {:ok, stream} = Inference.stream(client, "hello")
@@ -338,7 +430,11 @@ defmodule InferenceTest do
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],
-        adapter_opts: [asm_module: FakeASM, session: "session-name"]
+        adapter_opts: [
+          asm_module: FakeASM,
+          asm_options_module: FakeASMOptions,
+          session: "session-name"
+        ]
       )
 
     assert {:ok, stream} = Inference.stream(client, "hello")
@@ -353,7 +449,7 @@ defmodule InferenceTest do
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],
-        adapter_opts: [asm_module: FakeASM, session: self()]
+        adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions, session: self()]
       )
 
     assert {:ok, stream} = Inference.stream(client, "hello")
@@ -370,6 +466,7 @@ defmodule InferenceTest do
         defaults: [lane: :core],
         adapter_opts: [
           asm_module: FakeASM,
+          asm_options_module: FakeASMOptions,
           session: "session-name",
           stream_opts: [shape: :assistant_struct]
         ]

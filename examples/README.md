@@ -20,14 +20,20 @@ elixir examples/live_gemini_ex.exs
 ## Agent Session Manager
 
 Requires the local `agent_session_manager` repository. Provider/session details
-are passed through to ASM:
+are passed through to ASM.
+
+The ASM adapter is common-only. Provider-native tool controls are rejected until
+ASM has a proven all-provider host-tool contract.
 
 ```bash
-export GEMINI_API_KEY=...
-export INFERENCE_ASM_PROVIDER=gemini
-export INFERENCE_ASM_MODEL=gemini-3.1-flash-lite-preview
-export INFERENCE_ASM_PROMPT="Say hello from ASM"
-elixir examples/live_asm.exs
+elixir examples/asm_adapter/text_only.exs \
+  --provider codex \
+  --model gpt-5.4 \
+  --prompt "Reply with exactly: INFERENCE_ASM_OK"
+
+elixir examples/asm_adapter/tools_unsupported.exs \
+  --provider codex \
+  --model gpt-5.4
 ```
 
 ## ReqLLM Compatibility

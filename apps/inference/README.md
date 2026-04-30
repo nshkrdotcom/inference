@@ -100,6 +100,9 @@ Requests can also be built explicitly:
 - Provider dependencies are installed by the consuming application.
 - Adapter modules translate to and from provider libraries; they do not hide
   provider setup, credentials, or runtime requirements.
+- `Inference.Adapters.ASM` is common-only. It validates options through ASM
+  strict preflight, rejects provider-native tool/configuration keys, and does
+  not expose ASM host tools until ASM has a proven all-provider tool contract.
 - Jido governed execution is owned by `jido_integration`, which implements
   `Inference.Adapter` from the Jido side.
 

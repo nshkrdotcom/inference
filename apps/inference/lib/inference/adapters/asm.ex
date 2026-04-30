@@ -10,6 +10,8 @@ defmodule Inference.Adapters.ASM do
   alias Inference.Adapters.Shared
   alias Inference.{Client, Error, Request, StreamEvent}
 
+  @unadmitted_tool_keys [:tools, :tool_choice, :host_tools, :dynamic_tools, :allowed_tools]
+
   @impl true
   def complete(%Client{} = client, %Request{} = request) do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
@@ -17,6 +19,7 @@ defmodule Inference.Adapters.ASM do
     with :ok <- Shared.ensure_dependency(module),
          {target, opts} <- query_target_and_opts(client, request),
          :ok <- validate_target(target),
+         :ok <- validate_common_opts(client, module, opts),
          {:ok, result} <- call_query(module, target, prompt(request), opts) do
       {:ok,
        Shared.response_from_result(result, client, request, metadata: metadata(result, client))}
@@ -31,6 +34,7 @@ defmodule Inference.Adapters.ASM do
 
     with :ok <- Shared.ensure_dependency(module),
          {:ok, session, opts, ownership} <- stream_session(module, client, request),
+         :ok <- validate_common_opts(client, module, opts),
          {:ok, raw_stream} <- call_stream(module, session, prompt(request), opts) do
       {:ok,
        raw_stream
@@ -143,6 +147,51 @@ defmodule Inference.Adapters.ASM do
     |> Keyword.drop([:temperature, :top_p, :max_tokens, :response_format, :prompt])
     |> rename_timeout()
   end
+
+  defp validate_common_opts(%Client{} = client, module, opts) when is_list(opts) do
+    case reject_unadmitted_tool_opts(opts) do
+      :ok -> strict_asm_preflight(client, module, opts)
+      {:error, %Error{} = error} -> {:error, error}
+    end
+  end
+
+  defp reject_unadmitted_tool_opts(opts) when is_list(opts) do
+    case Enum.find(@unadmitted_tool_keys, &Keyword.has_key?(opts, &1)) do
+      nil ->
+        :ok
+
+      key ->
+        {:error,
+         Error.unsupported_capability(:asm_tools,
+           message:
+             "ASM adapter does not support inference tools or provider-native tool controls yet; rejected #{inspect(key)}",
+           key: key
+         )}
+    end
+  end
+
+  defp strict_asm_preflight(%Client{provider: provider} = client, module, opts)
+       when is_atom(provider) and is_list(opts) do
+    options_module =
+      Keyword.get(client.adapter_opts, :asm_options_module, Module.concat([module, :Options]))
+
+    with :ok <- Shared.ensure_dependency(options_module),
+         true <- function_exported?(options_module, :preflight, 3) do
+      options_module.preflight(provider, opts, mode: :strict_common)
+      |> case do
+        {:ok, _preflight} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      false ->
+        {:error, Error.missing_dependency(options_module, function: :preflight)}
+
+      {:error, %Error{} = error} ->
+        {:error, error}
+    end
+  end
+
+  defp strict_asm_preflight(%Client{} = _client, _module, _opts), do: :ok
 
   defp rename_timeout(opts) do
     case Keyword.pop(opts, :timeout) do

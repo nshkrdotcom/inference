@@ -58,7 +58,10 @@ The compatibility adapters currently use this for migration support:
 - `Inference.Adapters.ASM` accepts `:prompt` to preserve raw CLI prompt text and
   converts string sessions to ASM `:session_id` options. `:prompt` is internal
   to the inference adapter and is removed before query, session, or stream
-  options are passed to Agent Session Manager.
+  options are passed to Agent Session Manager. The adapter validates the final
+  ASM option list through strict ASM preflight and rejects provider-native tool
+  keys such as `:tools`, `:tool_choice`, `:host_tools`, and `:dynamic_tools`
+  until ASM exposes a proven all-provider tool contract.
 
 These options are intentionally adapter-bound. Core application code should
 prefer the stable request fields unless it is implementing a compatibility

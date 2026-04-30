@@ -39,6 +39,11 @@ installed ASM module exposes `query/3`, `start_session/1`, `stream/3`, and
 provider atom remains the query target; pid sessions are treated as external
 sessions.
 
+The ASM adapter is intentionally common-only. It calls ASM strict preflight for
+the final option list, does not accept provider SDK options through generic
+inference request options, and rejects tool-bearing requests until ASM has a
+documented all-provider host-tool contract.
+
 ## ReqLlmNext
 
 Install ReqLlmNext where broad hosted-provider coverage is needed:
