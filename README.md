@@ -21,3 +21,6 @@ in [`apps/inference/README.md`](apps/inference/README.md).
 Agents should read [`AGENTS.md`](AGENTS.md) before changing adapter contracts.
 
 Implementation progress is tracked in [`CHECKLIST.md`](CHECKLIST.md).
+
+ASM adapter promotion-path examples live in
+[`examples/asm_adapter/README.md`](examples/asm_adapter/README.md).
