@@ -42,11 +42,15 @@ application code
   -> Inference.Client
   -> Jido-owned Inference.Adapter implementation
   -> Jido Integration inference runtime
+  -> authority-selected credential and target refs
   -> provider/runtime family
 ```
 
 That keeps `:inference` reusable without making it depend on governance
-subsystems.
+subsystems. The standalone stack can use direct adapter credentials and local
+runtime setup. The governed stack cannot use those defaults as authority; it
+must receive authority refs, credential handles or leases, target grants, and
+redacted materialization evidence from the owning control plane.
 
 ## Package Shape
 

@@ -7,6 +7,11 @@ semantic contract and adapter behaviour. Jido Integration owns durable run
 records, route selection, leases, credential references, replay, review packets,
 and platform projections.
 
+Governed inference is still required platform scope. The ownership boundary is
+package placement: `:inference` keeps standalone semantic contracts, and
+`jido_integration` implements the governed adapter that carries authority refs,
+credential handles or leases, target grants, and redacted evidence.
+
 The intended dependency direction is:
 
 ```text
@@ -31,6 +36,9 @@ The Jido-owned adapter should map:
 - Jido durable result and review ids back into `Inference.Response`;
 - Jido route, policy, credential, replay, and review metadata into
   redacted `Inference.Trace` metadata.
+- universal auth authority refs, connector or provider account refs, lease
+  refs, and target refs into redacted trace metadata without raw credential
+  material.
 
 ## Shared Contract Checklist
 

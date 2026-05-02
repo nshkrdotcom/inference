@@ -60,5 +60,8 @@ elixir examples/live_reqllm_next.exs
 
 ## Jido
 
-Jido governed execution is future work owned by `jido_integration`, not an
-adapter shipped by `:inference`.
+Jido governed execution is required platform scope owned by
+`jido_integration`, not an adapter shipped by `:inference`. Direct examples in
+this repository remain standalone provider examples. Governed live-provider
+proof must run through the Jido-owned adapter with authority refs, credential
+handles or leases, target grants, disposable credentials, and cleanup evidence.

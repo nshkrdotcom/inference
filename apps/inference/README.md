@@ -66,6 +66,12 @@ Jido governed execution is owned by `jido_integration`. The Jido-owned adapter
 implements `Inference.Adapter` from that repository and translates shared
 requests into governed control-plane execution.
 
+That governed lane is required release scope for platforms that use universal
+auth authority. It remains outside the core `:inference` package so direct
+standalone adapters stay reusable, while governed deployments carry authority
+refs, credential handles or leases, target grants, and redacted trace evidence
+through the Jido-owned adapter.
+
 ## Usage
 
 ```elixir
@@ -105,6 +111,9 @@ Requests can also be built explicitly:
   not expose ASM host tools until ASM has a proven all-provider tool contract.
 - Jido governed execution is owned by `jido_integration`, which implements
   `Inference.Adapter` from the Jido side.
+- Direct `:inference` adapters are standalone mechanics. They do not decide
+  durable provider credential authority, target attachment, or workflow
+  admission for governed execution.
 
 ## Guides
 
