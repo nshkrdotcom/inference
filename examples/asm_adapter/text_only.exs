@@ -13,15 +13,35 @@ defmodule InferenceExamples.ASMTextOnly do
     provider: :string
   ]
 
+  @providers %{
+    "amp" => :amp,
+    "anthropic" => :anthropic,
+    "claude" => :claude,
+    "codex" => :codex,
+    "gemini" => :gemini,
+    "google" => :google,
+    "openai" => :openai
+  }
+
+  @lanes %{
+    "auto" => :auto,
+    "cli" => :cli,
+    "core" => :core,
+    "sdk" => :sdk
+  }
+
   def main(argv) do
     {opts, args, invalid} = OptionParser.parse(argv, strict: @switches)
     reject_invalid!(invalid)
 
-    provider = opts |> required!(:provider) |> String.to_atom()
+    provider = opts |> required!(:provider) |> provider!()
     model = required!(opts, :model)
     prompt = Keyword.get(opts, :prompt) || Enum.join(args, " ")
-    prompt = if String.trim(prompt) == "", do: "Reply with exactly: INFERENCE_ASM_OK", else: prompt
-    lane = opts |> Keyword.get(:lane, "auto") |> String.to_atom()
+
+    prompt =
+      if String.trim(prompt) == "", do: "Reply with exactly: INFERENCE_ASM_OK", else: prompt
+
+    lane = opts |> Keyword.get(:lane, "auto") |> lane!()
 
     client =
       Inference.Client.new!(
@@ -62,6 +82,20 @@ defmodule InferenceExamples.ASMTextOnly do
   defp missing_required!(key) do
     IO.puts(:stderr, "Missing required --#{String.replace(to_string(key), "_", "-")}.")
     System.halt(64)
+  end
+
+  defp provider!(value), do: fetch_known!(@providers, value, "provider")
+  defp lane!(value), do: fetch_known!(@lanes, value, "lane")
+
+  defp fetch_known!(known, value, label) do
+    case Map.fetch(known, value) do
+      {:ok, parsed} ->
+        parsed
+
+      :error ->
+        IO.puts(:stderr, "Unsupported #{label}: #{inspect(value)}")
+        System.halt(64)
+    end
   end
 end
 

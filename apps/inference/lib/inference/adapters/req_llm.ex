@@ -16,6 +16,7 @@ defmodule Inference.Adapters.ReqLLM do
 
   @env_vars %{
     gemini: ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    google: ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
     openai: ["OPENAI_API_KEY"],
     anthropic: ["ANTHROPIC_API_KEY"]
   }
@@ -177,8 +178,10 @@ defmodule Inference.Adapters.ReqLLM do
   defp maybe_put_provider_key(_module, _client, nil), do: :ok
 
   defp maybe_put_provider_key(module, %Client{} = client, api_key) do
-    if function_exported?(module, :put_key, 2) do
-      module.put_key(provider_key(client.provider), api_key)
+    provider_key = provider_key(client.provider)
+
+    if function_exported?(module, :put_key, 2) and provider_key do
+      module.put_key(provider_key, api_key)
     else
       :ok
     end
@@ -207,8 +210,9 @@ defmodule Inference.Adapters.ReqLLM do
 
   defp provider_key(:openai), do: :openai_api_key
   defp provider_key(:gemini), do: :google_api_key
+  defp provider_key(:google), do: :google_api_key
   defp provider_key(:anthropic), do: :anthropic_api_key
-  defp provider_key(provider), do: :"#{provider}_api_key"
+  defp provider_key(_provider), do: nil
 
   defp default_model(provider), do: Map.get(@default_models, provider)
 end

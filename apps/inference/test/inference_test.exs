@@ -156,6 +156,13 @@ defmodule InferenceTest do
              Request.from_messages([%{role: :bad, content: "hello"}])
   end
 
+  test "unknown string role fails without creating an atom" do
+    assert {:error, %Error{category: :invalid, reason: :role} = error} =
+             Request.from_messages([%{role: "bad-provider-role", content: "hello"}])
+
+    assert error.metadata.role == "bad-provider-role"
+  end
+
   test "invalid content fails before provider dispatch" do
     assert {:error, %Error{category: :invalid, reason: :content}} =
              Request.from_messages([%{role: :user, content: ""}])
@@ -374,6 +381,20 @@ defmodule InferenceTest do
 
     assert response.raw.opts[:api_key] == "gemini-key"
     assert_received {:put_key, :google_api_key, "gemini-key"}
+  end
+
+  test "req llm adapter does not derive global key names for unknown providers" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: :custom_provider,
+        model: "custom-model",
+        adapter_opts: [req_llm_module: FakeReqLLM, api_key: "custom-key"]
+      )
+
+    assert {:ok, response} = Inference.complete(client, "hello")
+    assert response.raw.opts[:api_key] == "custom-key"
+    refute_received {:put_key, _key, "custom-key"}
   end
 
   test "req llm adapter converts portable tool structs when ReqLLM.Tool is available" do

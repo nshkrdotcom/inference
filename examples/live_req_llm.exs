@@ -11,26 +11,49 @@ Mix.install([
   {:req_llm, "~> 1.10"}
 ])
 
-provider =
-  System.get_env("INFERENCE_REQ_LLM_PROVIDER", "google")
-  |> String.to_atom()
+defmodule InferenceExamples.LiveReqLLM do
+  @moduledoc false
 
-model = System.get_env("INFERENCE_REQ_LLM_MODEL", "gemini-3.1-flash-lite-preview")
-prompt = System.get_env("INFERENCE_REQ_LLM_PROMPT", "Say hello from ReqLLM.")
+  @providers %{
+    "anthropic" => :anthropic,
+    "gemini" => :gemini,
+    "google" => :google,
+    "openai" => :openai
+  }
 
-client =
-  Inference.Client.new!(
-    adapter: Inference.Adapters.ReqLLM,
-    provider: provider,
-    model: model
-  )
+  def main do
+    provider = provider!(System.get_env("INFERENCE_REQ_LLM_PROVIDER", "google"))
+    model = System.get_env("INFERENCE_REQ_LLM_MODEL", "gemini-3.1-flash-lite-preview")
+    prompt = System.get_env("INFERENCE_REQ_LLM_PROMPT", "Say hello from ReqLLM.")
 
-case Inference.complete(client, prompt) do
-  {:ok, response} ->
-    IO.puts(Inference.Response.text(response))
+    client =
+      Inference.Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: provider,
+        model: model
+      )
 
-  {:error, error} ->
-    IO.puts("ReqLLM example failed: #{Exception.message(error)}")
-    IO.inspect(error.metadata, label: "metadata")
-    System.halt(1)
+    case Inference.complete(client, prompt) do
+      {:ok, response} ->
+        IO.puts(Inference.Response.text(response))
+
+      {:error, error} ->
+        IO.puts("ReqLLM example failed: #{Exception.message(error)}")
+        IO.inspect(error.metadata, label: "metadata")
+        System.halt(1)
+    end
+  end
+
+  defp provider!(value) do
+    case Map.fetch(@providers, value) do
+      {:ok, provider} ->
+        provider
+
+      :error ->
+        IO.puts(:stderr, "INFERENCE_REQ_LLM_PROVIDER has unsupported value #{inspect(value)}")
+        System.halt(64)
+    end
+  end
 end
+
+InferenceExamples.LiveReqLLM.main()

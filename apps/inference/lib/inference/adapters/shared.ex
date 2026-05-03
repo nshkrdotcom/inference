@@ -103,9 +103,14 @@ defmodule Inference.Adapters.Shared do
     model = request.model || client.model
 
     case {client.provider, model} do
-      {provider, model} when is_atom(provider) and is_binary(model) -> "#{provider}:#{model}"
-      {_provider, model} when is_binary(model) -> model
-      _ -> nil
+      {provider, model} when is_atom(provider) and is_binary(model) ->
+        Atom.to_string(provider) <> ":" <> model
+
+      {_provider, model} when is_binary(model) ->
+        model
+
+      _ ->
+        nil
     end
   end
 

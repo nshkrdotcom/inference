@@ -51,11 +51,10 @@ defmodule Inference.Message do
 
   defp validate(%__MODULE__{} = message), do: {:ok, message}
 
-  defp normalize_role(role) when is_binary(role) do
-    String.to_existing_atom(role)
-  rescue
-    ArgumentError -> role
-  end
+  defp normalize_role("system"), do: :system
+  defp normalize_role("user"), do: :user
+  defp normalize_role("assistant"), do: :assistant
+  defp normalize_role("tool"), do: :tool
 
   defp normalize_role(role), do: role
 end

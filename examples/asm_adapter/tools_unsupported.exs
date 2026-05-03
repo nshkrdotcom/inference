@@ -11,11 +11,21 @@ defmodule InferenceExamples.ASMToolsUnsupported do
     provider: :string
   ]
 
+  @providers %{
+    "amp" => :amp,
+    "anthropic" => :anthropic,
+    "claude" => :claude,
+    "codex" => :codex,
+    "gemini" => :gemini,
+    "google" => :google,
+    "openai" => :openai
+  }
+
   def main(argv) do
     {opts, _args, invalid} = OptionParser.parse(argv, strict: @switches)
     reject_invalid!(invalid)
 
-    provider = opts |> required!(:provider) |> String.to_atom()
+    provider = opts |> required!(:provider) |> provider!()
     model = required!(opts, :model)
 
     client =
@@ -36,7 +46,11 @@ defmodule InferenceExamples.ASMToolsUnsupported do
         System.halt(1)
 
       {:error, error} ->
-        IO.puts(:stderr, "Expected unsupported-capability error, got: #{Exception.message(error)}")
+        IO.puts(
+          :stderr,
+          "Expected unsupported-capability error, got: #{Exception.message(error)}"
+        )
+
         IO.inspect(error.metadata, label: "metadata")
         System.halt(1)
     end
@@ -61,6 +75,17 @@ defmodule InferenceExamples.ASMToolsUnsupported do
   defp missing_required!(key) do
     IO.puts(:stderr, "Missing required --#{String.replace(to_string(key), "_", "-")}.")
     System.halt(64)
+  end
+
+  defp provider!(value) do
+    case Map.fetch(@providers, value) do
+      {:ok, provider} ->
+        provider
+
+      :error ->
+        IO.puts(:stderr, "Unsupported provider: #{inspect(value)}")
+        System.halt(64)
+    end
   end
 end
 
