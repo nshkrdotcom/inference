@@ -70,6 +70,10 @@ generation through `generate_object/4`, provider key aliasing for OpenAI,
 Gemini, and Anthropic, and portable tool structs that expose `:name`,
 `:description`, `:input_schema`, and `:run`.
 
+For standalone clients, the compatibility adapter can still use provider-local
+env configured by the consuming application. For governed clients, env fallback
+is skipped and direct provider keys are rejected before adapter dispatch.
+
 ## Missing Dependencies
 
 If an adapter is selected but its underlying provider module is unavailable, the

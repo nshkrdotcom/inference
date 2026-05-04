@@ -6,7 +6,7 @@ defmodule Inference.Adapters.ReqLLM do
   @behaviour Inference.Adapter
 
   alias Inference.Adapters.Shared
-  alias Inference.{Client, Error, Request}
+  alias Inference.{Client, Error, GovernedAuthority, Request}
 
   @default_models %{
     openai: "gpt-5.4-mini",
@@ -188,9 +188,13 @@ defmodule Inference.Adapters.ReqLLM do
   end
 
   defp api_key(%Client{} = client, %Request{} = request) do
-    Keyword.get(request.options, :api_key) ||
-      Keyword.get(client.adapter_opts, :api_key) ||
-      env_api_key(client)
+    if GovernedAuthority.governed?(client) do
+      nil
+    else
+      Keyword.get(request.options, :api_key) ||
+        Keyword.get(client.adapter_opts, :api_key) ||
+        env_api_key(client)
+    end
   end
 
   defp env_api_key(%Client{} = client) do

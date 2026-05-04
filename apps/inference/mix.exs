@@ -87,6 +87,7 @@ defmodule Inference.MixProject do
           Inference.Response,
           Inference.Client,
           Inference.Adapter,
+          Inference.GovernedAuthority,
           Inference.Capability,
           Inference.Error,
           Inference.StreamEvent,

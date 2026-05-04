@@ -114,6 +114,12 @@ Requests can also be built explicitly:
 - Direct `:inference` adapters are standalone mechanics. They do not decide
   durable provider credential authority, target attachment, or workflow
   admission for governed execution.
+- Shared governed clients may carry explicit authority refs, endpoint refs,
+  provider-account refs, credential refs, service-identity refs, target refs,
+  and redaction values. The shared package rejects direct provider keys,
+  endpoint auth, model-account secrets, service identity secrets, raw env
+  functions, and adapter defaults beside that authority packet; Jido still owns
+  the governed adapter and durable control-plane behavior.
 
 ## Guides
 

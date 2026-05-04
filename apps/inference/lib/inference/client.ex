@@ -3,7 +3,7 @@ defmodule Inference.Client do
   Adapter client configuration.
   """
 
-  alias Inference.Error
+  alias Inference.{Error, GovernedAuthority}
 
   @enforce_keys [:adapter]
   defstruct [
@@ -11,6 +11,7 @@ defmodule Inference.Client do
     :provider,
     :model,
     :backend,
+    :authority,
     defaults: [],
     capabilities: [],
     metadata: %{},
@@ -22,6 +23,7 @@ defmodule Inference.Client do
           provider: atom() | nil,
           model: String.t() | nil,
           backend: atom() | nil,
+          authority: map() | nil,
           defaults: keyword(),
           capabilities: list(),
           metadata: map(),
@@ -32,18 +34,21 @@ defmodule Inference.Client do
   def new(attrs) when is_list(attrs), do: attrs |> Map.new() |> new()
 
   def new(attrs) when is_map(attrs) do
-    client = %__MODULE__{
-      adapter: fetch(attrs, :adapter),
-      provider: fetch(attrs, :provider),
-      model: fetch(attrs, :model),
-      backend: fetch(attrs, :backend),
-      defaults: fetch(attrs, :defaults, []),
-      capabilities: fetch(attrs, :capabilities, []),
-      metadata: fetch(attrs, :metadata, %{}),
-      adapter_opts: fetch(attrs, :adapter_opts, [])
-    }
+    with {:ok, attrs} <- GovernedAuthority.materialize_client_attrs(attrs) do
+      client = %__MODULE__{
+        adapter: fetch(attrs, :adapter),
+        provider: fetch(attrs, :provider),
+        model: fetch(attrs, :model),
+        backend: fetch(attrs, :backend),
+        authority: fetch(attrs, :authority),
+        defaults: fetch(attrs, :defaults, []),
+        capabilities: fetch(attrs, :capabilities, []),
+        metadata: fetch(attrs, :metadata, %{}),
+        adapter_opts: fetch(attrs, :adapter_opts, [])
+      }
 
-    validate(client)
+      validate(client)
+    end
   end
 
   def new(other), do: {:error, Error.invalid(:client, "client attrs must be a map", value: other)}

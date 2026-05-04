@@ -52,6 +52,11 @@ runtime setup. The governed stack cannot use those defaults as authority; it
 must receive authority refs, credential handles or leases, target grants, and
 redacted materialization evidence from the owning control plane.
 
+`Inference.GovernedAuthority` is provider-neutral. It validates and carries the
+shared ref envelope that downstream governed adapters need, but it does not
+issue leases, select routes, attach targets, or materialize raw provider
+secrets. Those remain owned by the control-plane adapter repository.
+
 ## Package Shape
 
 The repository is an umbrella-style workspace so the package can live at

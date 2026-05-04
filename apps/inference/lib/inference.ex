@@ -7,7 +7,7 @@ defmodule Inference do
   configured adapter module.
   """
 
-  alias Inference.{Client, Error, Request}
+  alias Inference.{Client, Error, GovernedAuthority, Request}
 
   @doc """
   Builds a client.
@@ -28,6 +28,7 @@ defmodule Inference do
           {:ok, Inference.Response.t()} | {:error, Error.t()}
   def complete(%Client{} = client, input, opts \\ []) do
     with {:ok, request} <- Request.new(input, opts),
+         :ok <- GovernedAuthority.reject_direct_request_options(client, request),
          :ok <- ensure_adapter(client.adapter, :complete, 2) do
       client.adapter.complete(client, request)
     end
@@ -43,6 +44,7 @@ defmodule Inference do
           {:ok, Enumerable.t()} | {:error, Error.t()}
   def stream(%Client{} = client, input, opts \\ []) do
     with {:ok, request} <- Request.new(input, opts),
+         :ok <- GovernedAuthority.reject_direct_request_options(client, request),
          :ok <- ensure_adapter(client.adapter, :stream, 2) do
       client.adapter.stream(client, request)
     end
@@ -66,9 +68,5 @@ defmodule Inference do
       true ->
         :ok
     end
-  end
-
-  defp ensure_adapter(adapter, _function, _arity) do
-    {:error, Error.invalid(:adapter, "adapter must be a module atom", adapter: adapter)}
   end
 end

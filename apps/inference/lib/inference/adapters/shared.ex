@@ -32,7 +32,7 @@ defmodule Inference.Adapters.Shared do
     finish_reason =
       Keyword.get_lazy(opts, :finish_reason, fn -> extract_field(result, :finish_reason) end)
 
-    metadata = Keyword.get(opts, :metadata, %{})
+    metadata = Map.merge(client.metadata, Keyword.get(opts, :metadata, %{}))
     object = Keyword.get_lazy(opts, :object, fn -> extract_field(result, :object) end)
 
     Response.new(

@@ -67,6 +67,20 @@ These options are intentionally adapter-bound. Core application code should
 prefer the stable request fields unless it is implementing a compatibility
 wrapper for an existing API.
 
+## Governed authority boundary
+
+Standalone clients continue to pass direct providers, models, defaults, and
+adapter options. Governed clients use `:governed_authority` instead. That packet
+materializes bounded adapter, provider, and model values while carrying only
+refs for authority, execution context, endpoint, provider account, credential,
+target, model, and service identity.
+
+When `:governed_authority` is present, direct provider keys, endpoint auth,
+service identity secrets, model-account secrets, raw env functions, adapter
+defaults, and request-level API keys are rejected before adapter dispatch. The
+ReqLLM compatibility adapter keeps its standalone env fallback, but skips that
+fallback for governed clients.
+
 Adapters should propagate provider usage, cost, finish reason, and tool-call
 fields onto `Inference.Response` whenever the underlying runtime reports them.
 The shared response helper extracts those fields from map or struct provider
