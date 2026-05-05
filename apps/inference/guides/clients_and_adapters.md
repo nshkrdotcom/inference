@@ -62,6 +62,8 @@ The compatibility adapters currently use this for migration support:
   ASM option list through strict ASM preflight and rejects provider-native tool
   keys such as `:tools`, `:tool_choice`, `:host_tools`, and `:dynamic_tools`
   until ASM exposes a proven all-provider tool contract.
+  Custom ASM modules must set `:asm_options_module` explicitly; the source-owned
+  default options module applies only to the default ASM module.
 
 These options are intentionally adapter-bound. Core application code should
 prefer the stable request fields unless it is implementing a compatibility

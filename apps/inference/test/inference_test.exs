@@ -231,6 +231,22 @@ defmodule InferenceTest do
     refute Keyword.has_key?(opts, :provider)
   end
 
+  test "asm adapter requires explicit options module for custom ASM modules" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [asm_module: FakeASM]
+      )
+
+    assert {:error, %Error{category: :invalid, reason: :asm_options_module} = error} =
+             Inference.complete(client, "hello")
+
+    assert error.metadata.asm_module == FakeASM
+    refute_received {:asm_query, _provider, _prompt, _opts}
+  end
+
   test "asm adapter uses internal prompt override without forwarding it as provider option" do
     client =
       Client.new!(

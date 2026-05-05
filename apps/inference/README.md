@@ -109,6 +109,8 @@ Requests can also be built explicitly:
 - `Inference.Adapters.ASM` is common-only. It validates options through ASM
   strict preflight, rejects provider-native tool/configuration keys, and does
   not expose ASM host tools until ASM has a proven all-provider tool contract.
+  Custom ASM modules must provide an explicit `:asm_options_module`; only the
+  default ASM module uses the built-in `ASM.Options` default.
 - Jido governed execution is owned by `jido_integration`, which implements
   `Inference.Adapter` from the Jido side.
 - Direct `:inference` adapters are standalone mechanics. They do not decide

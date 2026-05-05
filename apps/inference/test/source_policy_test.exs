@@ -61,9 +61,12 @@ defmodule Inference.SourcePolicyTest do
   defp file_hits(path, tokens) do
     content = File.read!(Path.join(@repo_root, path))
 
-    tokens
-    |> Enum.filter(&String.contains?(content, &1))
-    |> Enum.map(fn token -> path <> " contains " <> inspect(token) end)
+    token_hits =
+      tokens
+      |> Enum.filter(&String.contains?(content, &1))
+      |> Enum.map(fn token -> path <> " contains " <> inspect(token) end)
+
+    token_hits ++ dynamic_quoted_atom_hits(path, content)
   end
 
   defp atom_tokens do
@@ -74,9 +77,26 @@ defmodule Inference.SourcePolicyTest do
       "binary_" <> "to_existing_atom",
       "list_" <> "to_atom",
       "list_" <> "to_existing_atom",
+      "Module." <> "concat",
       <<?:, ?#, ?{>>,
       <<?:, ?", ?#, ?{>>
     ]
+  end
+
+  defp dynamic_quoted_atom_hits(path, content) do
+    atom_prefix = <<58, 34>>
+    interpolation = "#" <> "{"
+
+    content
+    |> String.split(atom_prefix)
+    |> Enum.drop(1)
+    |> Enum.filter(fn suffix ->
+      suffix
+      |> String.split("\"", parts: 2)
+      |> List.first()
+      |> String.contains?(interpolation)
+    end)
+    |> Enum.map(fn _suffix -> path <> " contains dynamic quoted atom interpolation" end)
   end
 
   defp pattern_engine_tokens do

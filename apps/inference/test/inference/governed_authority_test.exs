@@ -84,6 +84,32 @@ defmodule Inference.GovernedAuthorityTest do
              "operation-policy-inference"
   end
 
+  test "governed client rejects unknown adapter and provider refs" do
+    assert {:error, %Error{category: :invalid, reason: :governed_authority} = error} =
+             Client.new(governed_authority: authority(adapter_ref: "unknown-adapter"))
+
+    assert error.message == "unknown governed adapter ref"
+    assert error.metadata.adapter_ref == "unknown-adapter"
+
+    assert {:error, %Error{category: :invalid, reason: :governed_authority} = error} =
+             Client.new(governed_authority: authority(provider_ref: "unknown-provider"))
+
+    assert error.message == "unknown governed provider ref"
+    assert error.metadata.provider_ref == "unknown-provider"
+  end
+
+  test "governed client requires endpoint identity and preserves model ids as strings" do
+    assert {:error, %Error{category: :invalid, reason: :governed_authority} = error} =
+             Client.new(governed_authority: Map.delete(authority(), :endpoint_ref))
+
+    assert :endpoint_ref in error.metadata.fields
+
+    model = "provider-owned/model:v1"
+    assert {:ok, client} = Client.new(governed_authority: authority(model: model))
+    assert client.model == model
+    assert client.authority.model_ref == "model-inference"
+  end
+
   test "governed client requires inference-family lease attach and operation refs" do
     required_refs = [
       :credential_handle_ref,

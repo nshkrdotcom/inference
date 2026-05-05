@@ -11,6 +11,7 @@ defmodule Inference.Adapters.ASM do
   alias Inference.{Client, Error, GovernedAuthority, Request, StreamEvent}
 
   @unadmitted_tool_keys [:tools, :tool_choice, :host_tools, :dynamic_tools, :allowed_tools]
+  @default_options_modules %{ASM => ASM.Options}
 
   @impl true
   def complete(%Client{} = client, %Request{} = request) do
@@ -173,26 +174,55 @@ defmodule Inference.Adapters.ASM do
 
   defp strict_asm_preflight(%Client{provider: provider} = client, module, opts)
        when is_atom(provider) and is_list(opts) do
-    options_module =
-      Keyword.get(client.adapter_opts, :asm_options_module, Module.concat([module, :Options]))
-
-    with :ok <- Shared.ensure_dependency(options_module),
-         true <- function_exported?(options_module, :preflight, 3) do
-      options_module.preflight(provider, opts, mode: :strict_common)
-      |> case do
-        {:ok, _preflight} -> :ok
-        {:error, reason} -> {:error, reason}
-      end
+    with {:ok, options_module} <- asm_options_module(client, module),
+         :ok <- Shared.ensure_dependency(options_module) do
+      preflight_options(options_module, provider, opts)
     else
-      false ->
-        {:error, Error.missing_dependency(options_module, function: :preflight)}
-
       {:error, %Error{} = error} ->
         {:error, error}
     end
   end
 
   defp strict_asm_preflight(%Client{} = _client, _module, _opts), do: :ok
+
+  defp preflight_options(options_module, provider, opts) do
+    if function_exported?(options_module, :preflight, 3) do
+      options_module.preflight(provider, opts, mode: :strict_common)
+      |> case do
+        {:ok, _preflight} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, Error.missing_dependency(options_module, function: :preflight)}
+    end
+  end
+
+  defp asm_options_module(%Client{} = client, module) do
+    case Keyword.fetch(client.adapter_opts, :asm_options_module) do
+      {:ok, options_module} when is_atom(options_module) ->
+        {:ok, options_module}
+
+      {:ok, options_module} ->
+        {:error,
+         Error.invalid(:asm_options_module, "ASM options module must be a module atom",
+           asm_options_module: options_module
+         )}
+
+      :error ->
+        case Map.fetch(@default_options_modules, module) do
+          {:ok, options_module} ->
+            {:ok, options_module}
+
+          :error ->
+            {:error,
+             Error.invalid(
+               :asm_options_module,
+               "ASM options module must be explicit for custom ASM modules",
+               asm_module: module
+             )}
+        end
+    end
+  end
 
   defp rename_timeout(opts) do
     case Keyword.pop(opts, :timeout) do

@@ -141,12 +141,13 @@ defmodule Inference.Adapters.ReqLLM do
   end
 
   defp to_req_llm_tool(%{__struct__: module} = tool) do
-    req_tool_module = Module.concat([ReqLLM, Tool])
+    req_tool_module = ReqLLM.Tool
 
     with true <- portable_tool?(tool),
          true <- Code.ensure_loaded?(req_tool_module),
          true <- function_exported?(req_tool_module, :new, 1),
-         {:ok, req_tool} <- req_tool_module.new(req_tool_opts(module, tool)) do
+         # credo:disable-for-next-line Credo.Check.Refactor.Apply
+         {:ok, req_tool} <- apply(req_tool_module, :new, [req_tool_opts(module, tool)]) do
       req_tool
     else
       _other -> tool

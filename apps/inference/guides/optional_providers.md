@@ -44,6 +44,10 @@ the final option list, does not accept provider SDK options through generic
 inference request options, and rejects tool-bearing requests until ASM has a
 documented all-provider host-tool contract.
 
+When overriding the ASM module for tests or compatibility, also pass an explicit
+`:asm_options_module`. The default options module is bounded to the default ASM
+module and is not derived from custom module names.
+
 ## ReqLlmNext
 
 Install ReqLlmNext where broad hosted-provider coverage is needed:
