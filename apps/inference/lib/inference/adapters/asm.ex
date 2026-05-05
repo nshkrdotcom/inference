@@ -8,7 +8,7 @@ defmodule Inference.Adapters.ASM do
   @behaviour Inference.Adapter
 
   alias Inference.Adapters.Shared
-  alias Inference.{Client, Error, Request, StreamEvent}
+  alias Inference.{Client, Error, GovernedAuthority, Request, StreamEvent}
 
   @unadmitted_tool_keys [:tools, :tool_choice, :host_tools, :dynamic_tools, :allowed_tools]
 
@@ -146,6 +146,7 @@ defmodule Inference.Adapters.ASM do
     |> Shared.request_opts(request)
     |> Keyword.drop([:temperature, :top_p, :max_tokens, :response_format, :prompt])
     |> rename_timeout()
+    |> Keyword.merge(GovernedAuthority.asm_runtime_auth_opts(client))
   end
 
   defp validate_common_opts(%Client{} = client, module, opts) when is_list(opts) do

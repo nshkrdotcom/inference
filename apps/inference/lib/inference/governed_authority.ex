@@ -14,12 +14,39 @@ defmodule Inference.GovernedAuthority do
     :execution_context_ref,
     :adapter_ref,
     :provider_ref,
+    :connector_instance_ref,
+    :connector_binding_ref,
     :endpoint_ref,
     :provider_account_ref,
     :credential_ref,
+    :credential_handle_ref,
+    :credential_lease_ref,
     :target_ref,
+    :target_posture_ref,
+    :attach_grant_ref,
+    :operation_policy_ref,
     :model_ref,
-    :service_identity_ref
+    :model_account_ref,
+    :service_identity_ref,
+    :service_principal_ref
+  ]
+
+  @optional_refs [
+    :native_auth_assertion_ref
+  ]
+
+  @ref_fields @required_refs ++ @optional_refs
+
+  @asm_runtime_auth_ref_fields [
+    :authority_ref,
+    :execution_context_ref,
+    :connector_instance_ref,
+    :connector_binding_ref,
+    :provider_account_ref,
+    :credential_lease_ref,
+    :native_auth_assertion_ref,
+    :target_ref,
+    :operation_policy_ref
   ]
 
   @direct_client_fields [
@@ -33,7 +60,21 @@ defmodule Inference.GovernedAuthority do
     :provider_key,
     :endpoint_auth,
     :service_identity,
+    :service_principal,
     :model_account,
+    :runtime_auth,
+    :runtime_auth_mode,
+    :runtime_auth_scope,
+    :execution_context_ref,
+    :connector_instance_ref,
+    :connector_binding_ref,
+    :provider_account_ref,
+    :credential_lease_ref,
+    :native_auth_assertion_ref,
+    :target_ref,
+    :target_posture_ref,
+    :attach_grant_ref,
+    :operation_policy_ref,
     :env
   ]
 
@@ -42,7 +83,21 @@ defmodule Inference.GovernedAuthority do
     :provider_key,
     :endpoint_auth,
     :service_identity,
+    :service_principal,
     :model_account,
+    :runtime_auth,
+    :runtime_auth_mode,
+    :runtime_auth_scope,
+    :execution_context_ref,
+    :connector_instance_ref,
+    :connector_binding_ref,
+    :provider_account_ref,
+    :credential_lease_ref,
+    :native_auth_assertion_ref,
+    :target_ref,
+    :target_posture_ref,
+    :attach_grant_ref,
+    :operation_policy_ref,
     :env,
     :credential,
     :authorization,
@@ -86,15 +141,25 @@ defmodule Inference.GovernedAuthority do
              {:ok, adapter} <- adapter_for(normalized),
              {:ok, provider} <- provider_for(normalized),
              {:ok, model} <- required_binary(normalized, :model) do
+          refs = ref_projection(normalized)
+
           metadata =
             attrs
             |> fetch(:metadata, %{})
+            |> Map.put(:authority_refs, refs)
             |> Map.put(:authority_ref, fetch(normalized, :authority_ref))
             |> Map.put(:endpoint_ref, fetch(normalized, :endpoint_ref))
             |> Map.put(:provider_account_ref, fetch(normalized, :provider_account_ref))
             |> Map.put(:credential_ref, fetch(normalized, :credential_ref))
+            |> Map.put(:credential_handle_ref, fetch(normalized, :credential_handle_ref))
+            |> Map.put(:credential_lease_ref, fetch(normalized, :credential_lease_ref))
             |> Map.put(:target_ref, fetch(normalized, :target_ref))
+            |> Map.put(:target_posture_ref, fetch(normalized, :target_posture_ref))
+            |> Map.put(:attach_grant_ref, fetch(normalized, :attach_grant_ref))
+            |> Map.put(:operation_policy_ref, fetch(normalized, :operation_policy_ref))
+            |> Map.put(:model_account_ref, fetch(normalized, :model_account_ref))
             |> Map.put(:service_identity_ref, fetch(normalized, :service_identity_ref))
+            |> Map.put(:service_principal_ref, fetch(normalized, :service_principal_ref))
             |> Map.put(:redaction_values, redaction_values(normalized))
 
           {:ok,
@@ -118,6 +183,38 @@ defmodule Inference.GovernedAuthority do
   @spec governed?(Client.t()) :: boolean()
   def governed?(%Client{authority: authority}) when is_map(authority), do: true
   def governed?(%Client{}), do: false
+
+  @spec ref_projection(keyword() | map() | term()) :: map()
+  def ref_projection(authority) when is_list(authority) do
+    authority
+    |> Map.new()
+    |> ref_projection()
+  end
+
+  def ref_projection(authority) when is_map(authority) do
+    @ref_fields
+    |> Enum.reduce(%{}, fn field, acc ->
+      case fetch(authority, field) do
+        value when is_binary(value) and value != "" -> Map.put(acc, field, value)
+        _other -> acc
+      end
+    end)
+  end
+
+  def ref_projection(_authority), do: %{}
+
+  @spec asm_runtime_auth_opts(Client.t()) :: keyword()
+  def asm_runtime_auth_opts(%Client{authority: authority}) when is_map(authority) do
+    if fetch(authority, :adapter_ref) == "asm" do
+      authority
+      |> require_asm_runtime_auth_refs!()
+      |> asm_runtime_auth_opts_from_refs()
+    else
+      []
+    end
+  end
+
+  def asm_runtime_auth_opts(%Client{}), do: []
 
   @spec reject_direct_request_options(Client.t(), Request.t()) :: :ok | {:error, Error.t()}
   def reject_direct_request_options(%Client{} = client, %Request{} = request) do
@@ -182,6 +279,43 @@ defmodule Inference.GovernedAuthority do
     end
   end
 
+  defp require_asm_runtime_auth_refs!(authority) do
+    missing =
+      @asm_runtime_auth_ref_fields
+      |> Enum.reject(fn field ->
+        case fetch(authority, field) do
+          value when is_binary(value) -> String.trim(value) != ""
+          _other -> false
+        end
+      end)
+
+    if missing == [] do
+      authority
+    else
+      raise ArgumentError,
+            "governed ASM handoff requires #{Enum.map_join(missing, ", ", &to_string/1)}"
+    end
+  end
+
+  defp asm_runtime_auth_opts_from_refs(authority) do
+    [
+      runtime_auth_mode: :governed,
+      runtime_auth_scope: :governed,
+      provider_auth_backend: :governed_authority,
+      connector_auth_backend: :governed_authority,
+      provider_account_status: :asserted,
+      authority_ref: fetch(authority, :authority_ref),
+      execution_context_ref: fetch(authority, :execution_context_ref),
+      connector_instance_ref: fetch(authority, :connector_instance_ref),
+      connector_binding_ref: fetch(authority, :connector_binding_ref),
+      provider_account_ref: fetch(authority, :provider_account_ref),
+      credential_lease_ref: fetch(authority, :credential_lease_ref),
+      native_auth_assertion_ref: fetch(authority, :native_auth_assertion_ref),
+      target_ref: fetch(authority, :target_ref),
+      operation_policy_ref: fetch(authority, :operation_policy_ref)
+    ]
+  end
+
   defp adapter_for(authority) do
     ref = fetch(authority, :adapter_ref)
 
@@ -225,19 +359,31 @@ defmodule Inference.GovernedAuthority do
   end
 
   defp authority_metadata(authority) do
-    %{
+    authority
+    |> ref_projection()
+    |> Map.merge(%{
       authority_ref: fetch(authority, :authority_ref),
       execution_context_ref: fetch(authority, :execution_context_ref),
       adapter_ref: fetch(authority, :adapter_ref),
       provider_ref: fetch(authority, :provider_ref),
+      connector_instance_ref: fetch(authority, :connector_instance_ref),
+      connector_binding_ref: fetch(authority, :connector_binding_ref),
       endpoint_ref: fetch(authority, :endpoint_ref),
       provider_account_ref: fetch(authority, :provider_account_ref),
       credential_ref: fetch(authority, :credential_ref),
+      credential_handle_ref: fetch(authority, :credential_handle_ref),
+      credential_lease_ref: fetch(authority, :credential_lease_ref),
       target_ref: fetch(authority, :target_ref),
+      target_posture_ref: fetch(authority, :target_posture_ref),
+      attach_grant_ref: fetch(authority, :attach_grant_ref),
+      operation_policy_ref: fetch(authority, :operation_policy_ref),
       model_ref: fetch(authority, :model_ref),
+      model_account_ref: fetch(authority, :model_account_ref),
       service_identity_ref: fetch(authority, :service_identity_ref),
+      service_principal_ref: fetch(authority, :service_principal_ref),
+      native_auth_assertion_ref: fetch(authority, :native_auth_assertion_ref),
       redaction_values: redaction_values(authority)
-    }
+    })
   end
 
   defp normalize_authority(authority) when is_map(authority), do: {:ok, authority}

@@ -6,7 +6,7 @@ defmodule Inference.Adapters.ReqLlmNext do
   @behaviour Inference.Adapter
 
   alias Inference.Adapters.Shared
-  alias Inference.{Client, Error, Request}
+  alias Inference.{Client, Error, GovernedAuthority, Request}
 
   @impl true
   def complete(%Client{} = client, %Request{} = request) do
@@ -14,7 +14,7 @@ defmodule Inference.Adapters.ReqLlmNext do
 
     with :ok <- Shared.ensure_dependency(module),
          model_spec when is_binary(model_spec) <- Shared.model_spec(client, request),
-         opts <- Shared.request_opts(client, request),
+         opts <- request_opts(client, request),
          {:ok, result} <- call_generate_text(module, model_spec, Request.to_prompt(request), opts) do
       {:ok, Shared.response_from_result(result, client, request)}
     else
@@ -34,6 +34,16 @@ defmodule Inference.Adapters.ReqLlmNext do
       apply(module, :generate_text, [model_spec, prompt, opts])
     else
       {:error, Error.missing_dependency(module, function: :generate_text)}
+    end
+  end
+
+  defp request_opts(%Client{} = client, %Request{} = request) do
+    opts = Shared.request_opts(client, request)
+
+    if GovernedAuthority.governed?(client) do
+      Keyword.put(opts, :authority_refs, GovernedAuthority.ref_projection(client.authority))
+    else
+      opts
     end
   end
 end
