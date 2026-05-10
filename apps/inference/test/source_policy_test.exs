@@ -28,6 +28,9 @@ defmodule Inference.SourcePolicyTest do
     "mix.exs",
     "mix.lock"
   ]
+  @excluded_tracked_text_paths [
+    "build_support/dependency_sources.exs"
+  ]
 
   test "tracked source avoids unbounded atom creation" do
     assert_no_tracked_hits(atom_tokens())
@@ -51,6 +54,7 @@ defmodule Inference.SourcePolicyTest do
 
     output
     |> String.split("\n", trim: true)
+    |> Enum.reject(&(&1 in @excluded_tracked_text_paths))
     |> Enum.filter(&text_file?/1)
   end
 

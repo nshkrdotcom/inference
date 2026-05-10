@@ -3,6 +3,7 @@
 /deps/
 /doc/
 /.elixir_ls/
+/.dependency_sources.local.exs
 *.ez
 
 apps/*/_build/

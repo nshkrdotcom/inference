@@ -1,6 +1,8 @@
 defmodule Inference.DependencyBoundaryTest do
   use ExUnit.Case, async: true
 
+  @repo_root Path.expand("../../../..", __DIR__)
+
   @forbidden_deps [
     :gemini_cli_sdk,
     :claude_agent_sdk,
@@ -10,6 +12,18 @@ defmodule Inference.DependencyBoundaryTest do
 
   test "inference does not declare provider SDK deps" do
     assert_forbidden_deps_absent(Mix.Project.config()[:deps], @forbidden_deps)
+  end
+
+  test "repo has dependency-source bootstrap without Weld adoption" do
+    assert File.regular?(Path.join(@repo_root, "build_support/dependency_sources.exs"))
+    assert File.regular?(Path.join(@repo_root, "build_support/dependency_sources.config.exs"))
+    assert File.read!(Path.join(@repo_root, ".gitignore")) =~ ".dependency_sources.local.exs"
+
+    root_mix = File.read!(Path.join(@repo_root, "mix.exs"))
+    app_mix = File.read!(Path.join(@repo_root, "apps/inference/mix.exs"))
+
+    assert root_mix =~ "build_support/dependency_sources.exs"
+    refute String.contains?(root_mix <> app_mix, "{:weld")
   end
 
   defp assert_forbidden_deps_absent(deps, forbidden_deps) when is_list(deps) do

@@ -36,6 +36,25 @@ execution and durable run truth.
 When changing shared semantics that the Jido adapter depends on, run this
 package gate and then run `mix ci` in `/home/home/p/g/n/jido_integration`.
 
+## Dependency Sources And Runtime Env
+
+- Dependency source selection is handled by
+  `build_support/dependency_sources.exs` plus
+  `build_support/dependency_sources.config.exs`.
+- Use `.dependency_sources.local.exs` for local overrides; it is gitignored and
+  must not be committed.
+- Dependency source selection must not read OS environment variables.
+- This repo is not in the discovered Weld consumer set. Do not add a Weld
+  dependency during this Phase 2 cleanup pass.
+- Runtime application code under `lib/**` must not call direct OS env APIs such
+  as `System.get_env`, `System.fetch_env`, `System.put_env`, or
+  `System.delete_env`.
+- Runtime/deployment env reads belong in `config/runtime.exs` or an explicit
+  `Config.Provider`. Library code receives explicit options, credential
+  providers, or caller-supplied env maps from the top-level application.
+- Tests and live examples may read or manipulate env only at the boundary that
+  launches the example or proves compatibility behavior.
+
 ## Validation
 
 Run from `/home/home/p/g/n/inference/apps/inference`:
@@ -49,4 +68,3 @@ mix credo --strict
 mix dialyzer
 mix docs
 ```
-

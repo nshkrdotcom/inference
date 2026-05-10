@@ -199,16 +199,30 @@ defmodule Inference.Adapters.ReqLLM do
   end
 
   defp env_api_key(%Client{} = client) do
-    env = Keyword.get(client.adapter_opts, :env, &System.get_env/1)
+    case explicit_env(client) do
+      nil -> nil
+      env -> env_api_key(client.provider, env)
+    end
+  end
 
-    client.provider
+  defp explicit_env(%Client{} = client) do
+    case Keyword.fetch(client.adapter_opts, :env) do
+      {:ok, env} when is_function(env, 1) -> env
+      _other -> nil
+    end
+  end
+
+  defp env_api_key(provider, env) do
+    provider
     |> env_vars()
-    |> Enum.find_value(fn key ->
-      case env.(key) do
-        value when is_binary(value) and value != "" -> value
-        _other -> nil
-      end
-    end)
+    |> Enum.find_value(&env_value(env, &1))
+  end
+
+  defp env_value(env, key) do
+    case env.(key) do
+      value when is_binary(value) and value != "" -> value
+      _other -> nil
+    end
   end
 
   defp env_vars(provider), do: Map.get(@env_vars, provider, [])

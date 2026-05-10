@@ -347,6 +347,39 @@ defmodule InferenceTest do
     refute Keyword.has_key?(response.raw.opts, :model)
   end
 
+  test "req llm adapter ignores ambient env unless an env callback is explicit" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: :gemini,
+        model: "gemini-test",
+        adapter_opts: [req_llm_module: FakeReqLLM]
+      )
+
+    assert {:ok, response} = Inference.complete(client, "hello")
+    refute Keyword.has_key?(response.raw.opts, :api_key)
+    refute_received {:put_key, :google_api_key, _key}
+  end
+
+  test "req llm adapter accepts an explicit env callback" do
+    env = fn
+      "GOOGLE_API_KEY" -> "env-key"
+      _key -> nil
+    end
+
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: :google,
+        model: "gemini-test",
+        adapter_opts: [req_llm_module: FakeReqLLM, env: env]
+      )
+
+    assert {:ok, response} = Inference.complete(client, "hello")
+    assert response.raw.opts[:api_key] == "env-key"
+    assert_received {:put_key, :google_api_key, "env-key"}
+  end
+
   test "req llm compatibility adapter propagates usage, cost, and tool call fields" do
     client =
       Client.new!(
