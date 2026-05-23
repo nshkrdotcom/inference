@@ -15,7 +15,19 @@ defmodule Inference.MixProject do
       start_permanent: Mix.env() == :prod,
       package: package(),
       docs: docs(),
-      deps: deps()
+      deps: deps(),
+      aliases: aliases()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        ci: :test,
+        credo: :test,
+        dialyzer: :test,
+        docs: :dev
+      ]
     ]
   end
 
@@ -28,9 +40,22 @@ defmodule Inference.MixProject do
 
   defp deps do
     [
-      {:credo, "~> 1.7", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.4", only: :dev, runtime: false},
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      ci: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "test",
+        "credo --strict",
+        "dialyzer --format short",
+        "docs"
+      ]
     ]
   end
 
