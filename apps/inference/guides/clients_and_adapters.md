@@ -24,6 +24,9 @@ Then call through the facade:
 Adapter modules implement `Inference.Adapter`:
 
 ```elixir
+@callback provider_kind() ::
+            :model_endpoint | :local_model_endpoint | :agent_session
+
 @callback complete(Inference.Client.t(), Inference.Request.t()) ::
             {:ok, Inference.Response.t()} | {:error, Inference.Error.t()}
 
@@ -35,6 +38,22 @@ Adapter modules implement `Inference.Adapter`:
 `stream/2` but does not support streaming yet, return
 `Inference.Error` with category `:unsupported_capability`.
 
+Clients admit `:model_endpoint` and `:local_model_endpoint` by default. An
+agent-session caller must opt in explicitly:
+
+```elixir
+Inference.Client.new!(
+  adapter: Inference.Adapters.ASM,
+  admitted_kinds: [:agent_session],
+  provider: :codex,
+  model: "gpt-5.4"
+)
+```
+
+Adapters without `provider_kind/0`, adapters that report a value outside the
+closed set, and kinds outside the client's `:admitted_kinds` fail before
+adapter dispatch. Admission never relies on a module name.
+
 ## Adapter Modules
 
 The initial package includes:
@@ -44,6 +63,10 @@ The initial package includes:
 - `Inference.Adapters.GeminiEx`
 - `Inference.Adapters.ReqLlmNext`
 - `Inference.Adapters.ReqLLM`
+
+The four model adapters report `:model_endpoint`. ASM reports
+`:agent_session`. `:local_model_endpoint` is reserved for a later
+provider-neutral self-hosted endpoint adapter.
 
 Only the mock adapter is fully self-contained. Other adapters require the
 consuming application or live example script to install the underlying provider
@@ -64,6 +87,8 @@ The compatibility adapters currently use this for migration support:
   until ASM exposes a proven all-provider tool contract.
   Custom ASM modules must set `:asm_options_module` explicitly; the source-owned
   default options module applies only to the default ASM module.
+  Gemini CLI is retired. Antigravity is the current Google coding-agent SDK;
+  `GeminiEx` remains the distinct direct Gemini API adapter.
 
 These options are intentionally adapter-bound. Core application code should
 prefer the stable request fields unless it is implementing a compatibility

@@ -26,6 +26,22 @@ defmodule Inference.DependencyBoundaryTest do
     refute String.contains?(root_mix <> app_mix, "{:weld")
   end
 
+  test "docs distinguish Gemini API from retired Gemini CLI ownership" do
+    docs =
+      [
+        Path.join(@repo_root, "apps/inference/README.md"),
+        Path.join(@repo_root, "apps/inference/guides/architecture.md"),
+        Path.join(@repo_root, "apps/inference/guides/clients_and_adapters.md"),
+        Path.join(@repo_root, "apps/inference/guides/optional_providers.md")
+      ]
+      |> Enum.map_join("\n", &File.read!/1)
+
+    assert docs =~ "Gemini API"
+    assert docs =~ "Gemini CLI is retired"
+    assert docs =~ "Antigravity"
+    assert docs =~ "current Google coding-agent"
+  end
+
   defp assert_forbidden_deps_absent(deps, forbidden_deps) when is_list(deps) do
     declared = MapSet.new(Enum.map(deps, &dep_name/1))
 

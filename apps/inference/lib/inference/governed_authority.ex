@@ -170,6 +170,7 @@ defmodule Inference.GovernedAuthority do
              provider: provider,
              model: model,
              backend: optional_existing(normalized, :backend),
+             admitted_kinds: fetch(normalized, :admitted_kinds, fetch(attrs, :admitted_kinds)),
              defaults: optional_keyword(normalized, :defaults, []),
              capabilities: fetch(attrs, :capabilities, []),
              metadata: metadata,

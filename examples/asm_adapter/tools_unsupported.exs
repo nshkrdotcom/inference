@@ -31,6 +31,7 @@ defmodule InferenceExamples.ASMToolsUnsupported do
     client =
       Inference.Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: provider,
         model: model,
         defaults: [lane: :auto]

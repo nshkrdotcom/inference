@@ -135,6 +135,7 @@ defmodule Inference.GovernedAuthorityTest do
                governed_authority:
                  authority(
                    adapter_ref: "asm",
+                   admitted_kinds: [:agent_session],
                    provider_ref: "codex",
                    model: "codex-governed",
                    adapter_opts: [

@@ -29,7 +29,8 @@ defmodule Inference do
   def complete(%Client{} = client, input, opts \\ []) do
     with {:ok, request} <- Request.new(input, opts),
          :ok <- GovernedAuthority.reject_direct_request_options(client, request),
-         :ok <- ensure_adapter(client.adapter, :complete, 2) do
+         :ok <- ensure_adapter(client.adapter, :complete, 2),
+         :ok <- Client.validate_adapter_kind(client) do
       client.adapter.complete(client, request)
     end
   rescue
@@ -45,7 +46,8 @@ defmodule Inference do
   def stream(%Client{} = client, input, opts \\ []) do
     with {:ok, request} <- Request.new(input, opts),
          :ok <- GovernedAuthority.reject_direct_request_options(client, request),
-         :ok <- ensure_adapter(client.adapter, :stream, 2) do
+         :ok <- ensure_adapter(client.adapter, :stream, 2),
+         :ok <- Client.validate_adapter_kind(client) do
       client.adapter.stream(client, request)
     end
   rescue

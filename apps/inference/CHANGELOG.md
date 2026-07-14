@@ -3,6 +3,10 @@
 ## 0.1.0-dev
 
 - Initial project skeleton.
+- Added closed adapter provider kinds and explicit client admission so model
+  endpoints remain the default while ASM agent sessions require opt-in.
+- Documented `gemini_ex` as the distinct Gemini API SDK, Gemini CLI as retired,
+  and Antigravity as the current Google coding-agent SDK behind ASM.
 - Added semantic inference contracts.
 - Added mock and optional provider adapter modules.
 - Added live-gated provider examples.

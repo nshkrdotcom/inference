@@ -9,6 +9,9 @@ defmodule Inference.Adapters.GeminiEx do
   alias Inference.{Client, Error, Request}
 
   @impl true
+  def provider_kind, do: :model_endpoint
+
+  @impl true
   def complete(%Client{} = client, %Request{} = request) do
     module = Keyword.get(client.adapter_opts, :gemini_module, Gemini)
 

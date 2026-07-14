@@ -44,7 +44,7 @@ Provider-specific dependencies are opt-in. For example:
 def deps do
   [
     {:inference, "~> 0.1"},
-    {:gemini, "..."},
+    {:gemini_ex, "..."},
     {:agent_session_manager, "..."}
   ]
 end
@@ -59,8 +59,11 @@ The initial package ships adapter modules, not separate adapter packages:
 - `Inference.Adapters.ReqLLM`
 
 Provider-specific dependencies are opt-in dependencies in the consuming
-application. For example, Gemini users add both `:inference` and `:gemini_ex`;
-core/mock users add only `:inference`.
+application. `GeminiEx` is the direct Gemini API adapter: Gemini API users add
+both `:inference` and `:gemini_ex`; core/mock users add only `:inference`.
+Gemini CLI is retired. Antigravity is the current Google coding-agent SDK and
+is reached through the explicitly admitted ASM agent-session boundary, not the
+Gemini API adapter.
 
 Jido governed execution is owned by `jido_integration`. The Jido-owned adapter
 implements `Inference.Adapter` from that repository and translates shared
@@ -106,6 +109,9 @@ Requests can also be built explicitly:
 - Provider dependencies are installed by the consuming application.
 - Adapter modules translate to and from provider libraries; they do not hide
   provider setup, credentials, or runtime requirements.
+- Clients admit model and local-model endpoints by default. Agent-session
+  adapters require `admitted_kinds: [:agent_session]` so a generic inference
+  caller cannot silently flatten a stateful coding-agent session.
 - `Inference.Adapters.ASM` is common-only. It validates options through ASM
   strict preflight, rejects provider-native tool/configuration keys, and does
   not expose ASM host tools until ASM has a proven all-provider tool contract.

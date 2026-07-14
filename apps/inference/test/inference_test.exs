@@ -94,6 +94,12 @@ defmodule InferenceTest do
     end
   end
 
+  defmodule UnclassifiedAdapter do
+    alias Inference.Adapters.Mock
+
+    def complete(client, request), do: Mock.complete(client, request)
+  end
+
   defmodule FakeReqLLM do
     def put_key(key, value) do
       send(self(), {:put_key, key, value})
@@ -195,6 +201,57 @@ defmodule InferenceTest do
     assert response.model == "mock-fast"
   end
 
+  test "every built-in adapter reports its closed provider kind" do
+    expected = %{
+      Inference.Adapters.ASM => :agent_session,
+      Inference.Adapters.GeminiEx => :model_endpoint,
+      Inference.Adapters.Mock => :model_endpoint,
+      Inference.Adapters.ReqLLM => :model_endpoint,
+      Inference.Adapters.ReqLlmNext => :model_endpoint
+    }
+
+    assert Map.new(expected, fn {adapter, _kind} -> {adapter, adapter.provider_kind()} end) ==
+             expected
+  end
+
+  test "generic clients admit model endpoints by default" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.Mock,
+        provider: :mock,
+        adapter_opts: [response_text: "endpoint-ok"]
+      )
+
+    assert {:ok, %Response{text: "endpoint-ok"}} = Inference.complete(client, "hello")
+  end
+
+  test "generic clients reject agent sessions without explicit admission" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
+      )
+
+    assert {:error, %Error{category: :unsupported_capability} = error} =
+             Inference.complete(client, "hello")
+
+    assert error.metadata.provider_kind == :agent_session
+    assert error.metadata.admitted_kinds == [:model_endpoint, :local_model_endpoint]
+    refute_received {:asm_query, _provider, _prompt, _opts}
+  end
+
+  test "custom adapters without provider_kind fail clearly" do
+    client = Client.new!(adapter: UnclassifiedAdapter, provider: :custom)
+
+    assert {:error, %Error{category: :unsupported_capability} = error} =
+             Inference.complete(client, "hello")
+
+    assert error.message =~ "provider_kind/0"
+    assert error.metadata.adapter == UnclassifiedAdapter
+  end
+
   test "mock adapter supports stream events" do
     client = Client.new!(adapter: Inference.Adapters.Mock, provider: :mock)
     assert {:ok, events} = Inference.stream(client, "hello")
@@ -218,6 +275,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex",
         adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
@@ -235,6 +293,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex",
         adapter_opts: [asm_module: FakeASM]
@@ -251,6 +310,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex",
         adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
@@ -265,6 +325,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex",
         adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
@@ -281,6 +342,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex",
         adapter_opts: [
@@ -301,6 +363,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :gemini,
         model: "gemini-model",
         adapter_opts: [
@@ -329,6 +392,22 @@ defmodule InferenceTest do
 
     assert {:ok, response} = Inference.complete(client, "hello")
     assert response.text =~ "next openai:gpt-test"
+  end
+
+  test "explicit agent-session admission preserves string continuation" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [asm_module: FakeASM, asm_options_module: FakeASMOptions]
+      )
+
+    assert {:ok, response} = Inference.complete(client, "continue", session: "session-42")
+    assert response.text =~ "asm codex"
+    assert_received {:asm_query, :codex, _prompt, opts}
+    assert opts[:session_id] == "session-42"
   end
 
   test "req llm compatibility adapter works with fake module" do
@@ -473,6 +552,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],
@@ -497,6 +577,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],
@@ -516,6 +597,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],
@@ -531,6 +613,7 @@ defmodule InferenceTest do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: :codex,
         model: "codex-model",
         defaults: [lane: :core],

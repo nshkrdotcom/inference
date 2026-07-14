@@ -8,6 +8,9 @@ defmodule Inference.Adapters.Mock do
   alias Inference.{Client, Error, Request, Response, StreamEvent, Trace}
 
   @impl true
+  def provider_kind, do: :model_endpoint
+
+  @impl true
   def complete(%Client{} = client, %Request{} = request) do
     case Keyword.get(client.adapter_opts, :error) do
       nil -> {:ok, response(client, request)}

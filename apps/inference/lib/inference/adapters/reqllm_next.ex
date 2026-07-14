@@ -9,6 +9,9 @@ defmodule Inference.Adapters.ReqLlmNext do
   alias Inference.{Client, Error, GovernedAuthority, Request}
 
   @impl true
+  def provider_kind, do: :model_endpoint
+
+  @impl true
   def complete(%Client{} = client, %Request{} = request) do
     module = Keyword.get(client.adapter_opts, :executor_module, ReqLlmNext.Executor)
 

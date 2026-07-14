@@ -23,6 +23,19 @@ It does not own:
 - policy, routing, leasing, replay, or review packets;
 - Execution Plane runtime mechanics.
 
+## Provider Kinds
+
+Every adapter reports one closed provider kind:
+
+- `:model_endpoint` for hosted model APIs;
+- `:local_model_endpoint` for a future provider-neutral local endpoint;
+- `:agent_session` for stateful agent/session runtimes.
+
+Clients admit the two model-endpoint kinds by default. Selecting an ASM agent
+session requires explicit `:agent_session` admission, preserving workspace,
+continuation, approval, and tool semantics instead of silently presenting the
+session as a plain completion endpoint.
+
 ## Layering
 
 The expected standalone stack is:
@@ -66,3 +79,7 @@ future apps.
 The initial Hex package is only `:inference`. Adapter modules live inside that
 package. Separate adapter packages are deferred until dependency pressure proves
 they are worth the extra publishing and versioning overhead.
+
+`Inference.Adapters.GeminiEx` targets the direct Gemini API. Gemini CLI is
+retired; Antigravity is the current Google coding-agent SDK and is available
+through the explicitly admitted ASM agent-session family.

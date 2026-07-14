@@ -14,6 +14,9 @@ defmodule Inference.Adapters.ASM do
   @default_options_modules %{ASM => ASM.Options}
 
   @impl true
+  def provider_kind, do: :agent_session
+
+  @impl true
   def complete(%Client{} = client, %Request{} = request) do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
 

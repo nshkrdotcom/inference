@@ -22,6 +22,9 @@ defmodule Inference.Adapters.ReqLLM do
   }
 
   @impl true
+  def provider_kind, do: :model_endpoint
+
+  @impl true
   def complete(%Client{} = client, %Request{} = request) do
     module = Keyword.get(client.adapter_opts, :req_llm_module, ReqLLM)
 

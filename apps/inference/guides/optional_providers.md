@@ -13,7 +13,7 @@ No extra dependency is required:
 
 ## GeminiEx
 
-Install the Gemini SDK in the consuming app:
+Install the direct Gemini API SDK in the consuming app:
 
 ```elixir
 {:inference, "~> 0.1"},
@@ -21,6 +21,8 @@ Install the Gemini SDK in the consuming app:
 ```
 
 Configure credentials in the SDK, then use `Inference.Adapters.GeminiEx`.
+This is a model endpoint. Gemini CLI is retired and is not a compatibility
+route for this adapter.
 
 ## Agent Session Manager
 
@@ -32,6 +34,11 @@ Install Agent Session Manager in the consuming app:
 ```
 
 Use `Inference.Adapters.ASM` with a provider atom or session reference.
+
+ASM reports `:agent_session`, so clients must set
+`admitted_kinds: [:agent_session]`. Antigravity is the current Google
+coding-agent SDK behind the ASM family; it is distinct from the direct Gemini
+API provided by `GeminiEx`.
 
 The adapter supports normal query calls and managed streaming sessions when the
 installed ASM module exposes `query/3`, `start_session/1`, `stream/3`, and

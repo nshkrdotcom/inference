@@ -30,6 +30,7 @@ defmodule InferenceExamples.LiveASM do
     client =
       Inference.Client.new!(
         adapter: Inference.Adapters.ASM,
+        admitted_kinds: [:agent_session],
         provider: provider,
         model: System.get_env("INFERENCE_ASM_MODEL", "gemini-3.1-flash-lite-preview"),
         defaults: [
