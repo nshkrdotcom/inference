@@ -3,6 +3,7 @@
 ## 0.1.0 - 2026-07-13
 
 - Initial project skeleton.
+- Standardized Hex, HexDocs, changelog, and license release metadata.
 - Added closed adapter provider kinds and explicit client admission so model
   endpoints remain the default while ASM agent sessions require opt-in.
 - Documented `gemini_ex` as the distinct Gemini API SDK, Gemini CLI as retired,

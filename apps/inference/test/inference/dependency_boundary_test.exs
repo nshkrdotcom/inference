@@ -69,10 +69,22 @@ defmodule Inference.DependencyBoundaryTest do
     assert project[:elixir] == "~> 1.18"
     assert package[:name] == :inference
     assert package[:licenses] == ["MIT"]
-    assert package[:links][:GitHub] == "https://github.com/nshkrdotcom/inference"
+    assert project[:homepage_url] == "https://hex.pm/packages/inference"
+
+    assert package[:links] == %{
+             "Changelog" =>
+               "https://github.com/nshkrdotcom/inference/blob/main/apps/inference/CHANGELOG.md",
+             "GitHub" => "https://github.com/nshkrdotcom/inference",
+             "Hex" => "https://hex.pm/packages/inference",
+             "HexDocs" => "https://hexdocs.pm/inference",
+             "License" =>
+               "https://github.com/nshkrdotcom/inference/blob/main/apps/inference/LICENSE"
+           }
+
     assert "lib" in package[:files]
     assert "LICENSE" in package[:files]
     assert project[:docs][:assets] == %{"assets" => "assets"}
+    assert project[:docs][:homepage_url] == "https://hexdocs.pm/inference"
     assert changelog =~ "## 0.1.0 - 2026-07-13"
     assert license =~ "MIT License"
     assert root_mix =~ ~s({:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false})
