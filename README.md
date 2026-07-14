@@ -1,7 +1,7 @@
 # Inference
 
 <p align="center">
-  <img src="assets/inference.svg" alt="Inference" width="200" />
+  <img src="apps/inference/assets/inference.svg" alt="Inference" width="200" />
 </p>
 
 <p align="center">

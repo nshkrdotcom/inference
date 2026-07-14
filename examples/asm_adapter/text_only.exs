@@ -15,12 +15,10 @@ defmodule InferenceExamples.ASMTextOnly do
 
   @providers %{
     "amp" => :amp,
-    "anthropic" => :anthropic,
+    "antigravity" => :antigravity,
     "claude" => :claude,
     "codex" => :codex,
-    "gemini" => :gemini,
-    "google" => :google,
-    "openai" => :openai
+    "cursor" => :cursor
   }
 
   @lanes %{

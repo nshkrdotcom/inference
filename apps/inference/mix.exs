@@ -54,7 +54,7 @@ defmodule Inference.MixProject do
         "test",
         "credo --strict",
         "dialyzer --format short",
-        "docs"
+        "docs --warnings-as-errors"
       ]
     ]
   end

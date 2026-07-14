@@ -4,6 +4,10 @@ defmodule Inference.DependencyBoundaryTest do
   @repo_root Path.expand("../../../..", __DIR__)
 
   @forbidden_deps [
+    :agent_session_manager,
+    :gemini_ex,
+    :req_llm,
+    :req_llm_next,
     :gemini_cli_sdk,
     :claude_agent_sdk,
     :codex_sdk,
@@ -36,10 +40,41 @@ defmodule Inference.DependencyBoundaryTest do
       ]
       |> Enum.map_join("\n", &File.read!/1)
 
+    asm_examples =
+      [
+        Path.join(@repo_root, "examples/asm_adapter/text_only.exs"),
+        Path.join(@repo_root, "examples/asm_adapter/tools_unsupported.exs"),
+        Path.join(@repo_root, "examples/live_asm.exs")
+      ]
+      |> Enum.map_join("\n", &File.read!/1)
+
     assert docs =~ "Gemini API"
     assert docs =~ "Gemini CLI is retired"
     assert docs =~ "Antigravity"
     assert docs =~ "current Google coding-agent"
+    assert asm_examples =~ ~s("antigravity" => :antigravity)
+    assert asm_examples =~ ~s("cursor" => :cursor)
+    refute asm_examples =~ ~s("gemini" => :gemini)
+  end
+
+  test "0.1.0 release metadata and root invocation are complete" do
+    project = Mix.Project.config()
+    package = project[:package]
+    root_mix = File.read!(Path.join(@repo_root, "mix.exs"))
+    changelog = File.read!(Path.join(@repo_root, "apps/inference/CHANGELOG.md"))
+    license = File.read!(Path.join(@repo_root, "apps/inference/LICENSE"))
+
+    assert project[:app] == :inference
+    assert project[:version] == "0.1.0"
+    assert project[:elixir] == "~> 1.18"
+    assert package[:name] == :inference
+    assert package[:licenses] == ["MIT"]
+    assert package[:links][:GitHub] == "https://github.com/nshkrdotcom/inference"
+    assert "lib" in package[:files]
+    assert "LICENSE" in package[:files]
+    assert changelog =~ "## 0.1.0 - 2026-07-13"
+    assert license =~ "MIT License"
+    assert root_mix =~ ~s({:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false})
   end
 
   defp assert_forbidden_deps_absent(deps, forbidden_deps) when is_list(deps) do

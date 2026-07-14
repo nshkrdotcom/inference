@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-dev
+## 0.1.0 - 2026-07-13
 
 - Initial project skeleton.
 - Added closed adapter provider kinds and explicit client admission so model

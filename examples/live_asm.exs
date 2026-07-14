@@ -8,12 +8,10 @@ defmodule InferenceExamples.LiveASM do
 
   @providers %{
     "amp" => :amp,
-    "anthropic" => :anthropic,
+    "antigravity" => :antigravity,
     "claude" => :claude,
     "codex" => :codex,
-    "gemini" => :gemini,
-    "google" => :google,
-    "openai" => :openai
+    "cursor" => :cursor
   }
 
   @lanes %{
@@ -24,7 +22,7 @@ defmodule InferenceExamples.LiveASM do
   }
 
   def main do
-    provider = provider!(System.get_env("INFERENCE_ASM_PROVIDER", "gemini"))
+    provider = provider!(System.get_env("INFERENCE_ASM_PROVIDER", "codex"))
     prompt = System.get_env("INFERENCE_ASM_PROMPT", "Say hello from Agent Session Manager.")
 
     client =
@@ -32,7 +30,7 @@ defmodule InferenceExamples.LiveASM do
         adapter: Inference.Adapters.ASM,
         admitted_kinds: [:agent_session],
         provider: provider,
-        model: System.get_env("INFERENCE_ASM_MODEL", "gemini-3.1-flash-lite-preview"),
+        model: System.get_env("INFERENCE_ASM_MODEL", "gpt-5.4"),
         defaults: [
           lane: lane!(System.get_env("INFERENCE_ASM_LANE", "auto"))
         ]
