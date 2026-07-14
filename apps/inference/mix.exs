@@ -75,6 +75,7 @@ defmodule Inference.MixProject do
       source_ref: "v#{@version}",
       source_url: "https://github.com/nshkrdotcom/inference",
       logo: "assets/inference.svg",
+      assets: %{"assets" => "assets"},
       extras: [
         {"README.md", [filename: "overview", title: "Overview"]},
         {"guides/architecture.md", [filename: "architecture", title: "Architecture"]},

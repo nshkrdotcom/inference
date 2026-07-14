@@ -72,6 +72,7 @@ defmodule Inference.DependencyBoundaryTest do
     assert package[:links][:GitHub] == "https://github.com/nshkrdotcom/inference"
     assert "lib" in package[:files]
     assert "LICENSE" in package[:files]
+    assert project[:docs][:assets] == %{"assets" => "assets"}
     assert changelog =~ "## 0.1.0 - 2026-07-13"
     assert license =~ "MIT License"
     assert root_mix =~ ~s({:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false})
