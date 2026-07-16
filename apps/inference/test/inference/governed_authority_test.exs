@@ -33,6 +33,12 @@ defmodule Inference.GovernedAuthorityTest do
              detail: "provider rejected #{@sentinel}"
            )}
 
+        request.metadata[:return_message_only_error?] ->
+          {:error,
+           Error.provider_error(@sentinel,
+             detail: "provider rejected #{@sentinel}"
+           )}
+
         request.metadata[:return_untyped?] ->
           {:ok, %{provider_payload: @sentinel}}
 
@@ -63,16 +69,24 @@ defmodule Inference.GovernedAuthorityTest do
     def stream(client, request) do
       send(self(), {:managed_stream, client.authority, request})
 
-      {:ok,
-       [
-         %StreamEvent{
-           type: :delta,
-           data: "first #{@sentinel}",
-           metadata: %{api_key: @sentinel}
-         },
-         %StreamEvent{type: :delta, data: "second", metadata: %{}},
-         %StreamEvent{type: :done, data: nil, metadata: %{}}
-       ]}
+      if request.metadata[:raise_during_stream?] do
+        {:ok,
+         Stream.concat(
+           [%StreamEvent{type: :delta, data: "first", metadata: %{}}],
+           Stream.map([:raise], fn _event -> raise "stream crash #{@sentinel}" end)
+         )}
+      else
+        {:ok,
+         [
+           %StreamEvent{
+             type: :delta,
+             data: "first #{@sentinel}",
+             metadata: %{api_key: @sentinel}
+           },
+           %StreamEvent{type: :delta, data: "second", metadata: %{}},
+           %StreamEvent{type: :done, data: nil, metadata: %{}}
+         ]}
+      end
     end
   end
 
@@ -188,8 +202,23 @@ defmodule Inference.GovernedAuthorityTest do
     assert {:error, %Error{} = error} =
              Inference.complete(client, "hello", metadata: %{return_error?: true})
 
-    assert error.metadata.authorization == "[REDACTED]"
-    assert error.metadata.detail == "provider rejected [REDACTED]"
+    assert error.category == :provider_error
+    assert error.reason == :sentinel_failure
+    assert error.message == "managed adapter error; provider details were redacted"
+    assert error.metadata == %{details_redacted?: true}
+    refute inspect(error) =~ @sentinel
+  end
+
+  test "governed typed errors discard secret-bearing messages and unkeyed details" do
+    client = governed_client()
+
+    assert {:error, %Error{} = error} =
+             Inference.complete(client, "hello", metadata: %{return_message_only_error?: true})
+
+    assert error.category == :provider_error
+    assert error.reason == :provider_error
+    assert error.message == "managed adapter error; provider details were redacted"
+    assert error.metadata == %{details_redacted?: true}
     refute inspect(error) =~ @sentinel
   end
 
@@ -210,7 +239,32 @@ defmodule Inference.GovernedAuthorityTest do
              Inference.complete(client, "hello", metadata: %{raise?: true})
 
     assert error.message == "managed adapter raised; exception details were redacted"
+    assert error.metadata == %{details_redacted?: true}
     refute inspect(error) =~ @sentinel
+  end
+
+  test "governed lazy stream exceptions become sanitized terminal error events" do
+    client = governed_client()
+
+    assert {:ok, stream} =
+             Inference.stream(client, "hello", metadata: %{raise_during_stream?: true})
+
+    events = Enum.to_list(stream)
+
+    assert [
+             %StreamEvent{type: :delta, data: "first"},
+             %StreamEvent{
+               type: :error,
+               data: %Error{
+                 category: :adapter_exception,
+                 reason: :stream_exception,
+                 message: "managed stream failed; provider details were redacted",
+                 metadata: %{details_redacted?: true}
+               }
+             }
+           ] = events
+
+    refute inspect(events) =~ @sentinel
   end
 
   test "governed authority rejects materialized or adapter option payloads" do

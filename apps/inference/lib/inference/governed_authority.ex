@@ -426,28 +426,12 @@ defmodule Inference.GovernedAuthority do
   end
 
   defp secret_bearing_paths(map, path) when is_map(map) do
-    Enum.flat_map(map, fn {key, value} ->
-      child_path = path ++ [key]
-
-      if secret_key?(key) do
-        [child_path]
-      else
-        secret_bearing_paths(value, child_path)
-      end
-    end)
+    Enum.flat_map(map, &secret_bearing_entry_paths(&1, path))
   end
 
   defp secret_bearing_paths(list, path) when is_list(list) do
     if Keyword.keyword?(list) do
-      Enum.flat_map(list, fn {key, value} ->
-        child_path = path ++ [key]
-
-        if secret_key?(key) do
-          [child_path]
-        else
-          secret_bearing_paths(value, child_path)
-        end
-      end)
+      Enum.flat_map(list, &secret_bearing_entry_paths(&1, path))
     else
       list
       |> Enum.with_index()
@@ -456,6 +440,16 @@ defmodule Inference.GovernedAuthority do
   end
 
   defp secret_bearing_paths(_value, _path), do: []
+
+  defp secret_bearing_entry_paths({key, value}, path) do
+    child_path = path ++ [key]
+
+    if secret_key?(key) do
+      [child_path]
+    else
+      secret_bearing_paths(value, child_path)
+    end
+  end
 
   defp secret_key?(key) do
     normalized = key |> to_string() |> String.downcase()

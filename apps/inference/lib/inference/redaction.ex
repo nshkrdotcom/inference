@@ -21,24 +21,12 @@ defmodule Inference.Redaction do
   end
 
   defp redact(map, redaction_values) when is_map(map) do
-    Map.new(map, fn {key, value} ->
-      if secret_key?(key) do
-        {key, "[REDACTED]"}
-      else
-        {key, redact(value, redaction_values)}
-      end
-    end)
+    Map.new(map, &redact_entry(&1, redaction_values))
   end
 
   defp redact(list, redaction_values) when is_list(list) do
     if Keyword.keyword?(list) do
-      Enum.map(list, fn {key, value} ->
-        if secret_key?(key) do
-          {key, "[REDACTED]"}
-        else
-          {key, redact(value, redaction_values)}
-        end
-      end)
+      Enum.map(list, &redact_entry(&1, redaction_values))
     else
       Enum.map(list, &redact(&1, redaction_values))
     end
@@ -59,6 +47,14 @@ defmodule Inference.Redaction do
 
   defp redact(value, _redaction_values), do: value
 
+  defp redact_entry({key, value}, redaction_values) do
+    if secret_key?(key) do
+      {key, "[REDACTED]"}
+    else
+      {key, redact(value, redaction_values)}
+    end
+  end
+
   defp collect_redaction_values(%_struct{} = value) do
     value
     |> Map.from_struct()
@@ -78,10 +74,7 @@ defmodule Inference.Redaction do
 
   defp collect_redaction_values(list) when is_list(list) do
     if Keyword.keyword?(list) do
-      Enum.flat_map(list, fn {key, value} ->
-        own_values = if secret_key?(key), do: binary_values(value), else: []
-        own_values ++ collect_redaction_values(value)
-      end)
+      Enum.flat_map(list, &redaction_values_from_entry/1)
     else
       Enum.flat_map(list, &collect_redaction_values/1)
     end
@@ -94,6 +87,11 @@ defmodule Inference.Redaction do
   end
 
   defp collect_redaction_values(_value), do: []
+
+  defp redaction_values_from_entry({key, value}) do
+    own_values = if secret_key?(key), do: binary_values(value), else: []
+    own_values ++ collect_redaction_values(value)
+  end
 
   defp redaction_values_from(map) do
     values = Map.get(map, :redaction_values) || Map.get(map, "redaction_values") || []
