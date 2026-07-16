@@ -7,7 +7,7 @@ defmodule Inference do
   configured adapter module.
   """
 
-  alias Inference.{Client, Error, GovernedAuthority, Request}
+  alias Inference.{Client, Error, GovernedAuthority, ManagedResult, Request}
 
   @doc """
   Builds a client.
@@ -32,10 +32,12 @@ defmodule Inference do
          :ok <- ensure_adapter(client.adapter, :complete, 2),
          :ok <- Client.validate_adapter_kind(client) do
       client.adapter.complete(client, request)
+      |> ManagedResult.sanitize(client)
     end
   rescue
     exception ->
       {:error, Error.adapter_exception(exception, adapter: client.adapter)}
+      |> ManagedResult.sanitize(client)
   end
 
   @doc """
@@ -49,10 +51,12 @@ defmodule Inference do
          :ok <- ensure_adapter(client.adapter, :stream, 2),
          :ok <- Client.validate_adapter_kind(client) do
       client.adapter.stream(client, request)
+      |> ManagedResult.sanitize_stream(client)
     end
   rescue
     exception ->
       {:error, Error.adapter_exception(exception, adapter: client.adapter)}
+      |> ManagedResult.sanitize(client)
   end
 
   defp ensure_adapter(adapter, function, arity) when is_atom(adapter) do

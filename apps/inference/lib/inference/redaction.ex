@@ -31,7 +31,24 @@ defmodule Inference.Redaction do
   end
 
   defp redact(list, redaction_values) when is_list(list) do
-    Enum.map(list, &redact(&1, redaction_values))
+    if Keyword.keyword?(list) do
+      Enum.map(list, fn {key, value} ->
+        if secret_key?(key) do
+          {key, "[REDACTED]"}
+        else
+          {key, redact(value, redaction_values)}
+        end
+      end)
+    else
+      Enum.map(list, &redact(&1, redaction_values))
+    end
+  end
+
+  defp redact(tuple, redaction_values) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&redact(&1, redaction_values))
+    |> List.to_tuple()
   end
 
   defp redact(value, redaction_values) when is_binary(value) do
@@ -49,7 +66,7 @@ defmodule Inference.Redaction do
   end
 
   defp collect_redaction_values(map) when is_map(map) do
-    own_values = redaction_values_from(map)
+    own_values = redaction_values_from(map) ++ secret_values_from(map)
 
     child_values =
       map
@@ -60,7 +77,20 @@ defmodule Inference.Redaction do
   end
 
   defp collect_redaction_values(list) when is_list(list) do
-    Enum.flat_map(list, &collect_redaction_values/1)
+    if Keyword.keyword?(list) do
+      Enum.flat_map(list, fn {key, value} ->
+        own_values = if secret_key?(key), do: binary_values(value), else: []
+        own_values ++ collect_redaction_values(value)
+      end)
+    else
+      Enum.flat_map(list, &collect_redaction_values/1)
+    end
+  end
+
+  defp collect_redaction_values(tuple) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.flat_map(&collect_redaction_values/1)
   end
 
   defp collect_redaction_values(_value), do: []
@@ -74,12 +104,39 @@ defmodule Inference.Redaction do
     |> Enum.reject(&(&1 == ""))
   end
 
+  defp secret_values_from(map) do
+    Enum.flat_map(map, fn {key, value} ->
+      if secret_key?(key), do: binary_values(value), else: []
+    end)
+  end
+
+  defp binary_values(""), do: []
+  defp binary_values(value) when is_binary(value), do: [value]
+
+  defp binary_values(%_struct{} = value) do
+    value
+    |> Map.from_struct()
+    |> binary_values()
+  end
+
+  defp binary_values(map) when is_map(map),
+    do: map |> Map.values() |> Enum.flat_map(&binary_values/1)
+
+  defp binary_values(list) when is_list(list), do: Enum.flat_map(list, &binary_values/1)
+  defp binary_values(tuple) when is_tuple(tuple), do: tuple |> Tuple.to_list() |> binary_values()
+  defp binary_values(_value), do: []
+
   defp secret_key?(key) do
     normalized =
       key
       |> to_string()
       |> String.downcase()
 
-    Enum.any?(@secret_key_fragments, &String.contains?(normalized, &1))
+    not safe_reference_key?(normalized) and
+      Enum.any?(@secret_key_fragments, &String.contains?(normalized, &1))
+  end
+
+  defp safe_reference_key?(key) do
+    Enum.any?(~w[_ref _refs _id _ids _generation _fence], &String.ends_with?(key, &1))
   end
 end

@@ -4,10 +4,11 @@ defmodule Inference.GovernedAuthority do
 
   This module validates and carries refs used by governed adapter owners. It
   does not lease credentials, select routes, attach targets, or materialize raw
-  provider secrets.
+  provider secrets. Reference-only authority never selects its target adapter
+  directly: callers must separately inject a managed-materialization adapter.
   """
 
-  alias Inference.{Client, Error, Request}
+  alias Inference.{Adapter, Client, Error, Request}
 
   @required_refs [
     :authority_ref,
@@ -37,18 +38,6 @@ defmodule Inference.GovernedAuthority do
 
   @ref_fields @required_refs ++ @optional_refs
 
-  @asm_runtime_auth_ref_fields [
-    :authority_ref,
-    :execution_context_ref,
-    :connector_instance_ref,
-    :connector_binding_ref,
-    :provider_account_ref,
-    :credential_lease_ref,
-    :native_auth_assertion_ref,
-    :target_ref,
-    :operation_policy_ref
-  ]
-
   @direct_client_fields [
     :adapter,
     :provider,
@@ -56,6 +45,7 @@ defmodule Inference.GovernedAuthority do
     :backend,
     :defaults,
     :adapter_opts,
+    :managed_adapter_opts,
     :api_key,
     :provider_key,
     :endpoint_auth,
@@ -105,13 +95,7 @@ defmodule Inference.GovernedAuthority do
     :base_url
   ]
 
-  @adapter_refs %{
-    "asm" => Inference.Adapters.ASM,
-    "gemini_ex" => Inference.Adapters.GeminiEx,
-    "mock" => Inference.Adapters.Mock,
-    "req_llm" => Inference.Adapters.ReqLLM,
-    "reqllm_next" => Inference.Adapters.ReqLlmNext
-  }
+  @adapter_refs ~w[asm gemini_ex mock req_llm reqllm_next]
 
   @provider_refs %{
     "anthropic" => :anthropic,
@@ -137,8 +121,11 @@ defmodule Inference.GovernedAuthority do
       authority ->
         with {:ok, normalized} <- normalize_authority(authority),
              :ok <- reject_direct_client_fields(attrs),
+             :ok <- reject_unsafe_authority_fields(normalized),
+             :ok <- reject_secret_bearing_metadata(fetch(attrs, :metadata, %{})),
              :ok <- validate_required_refs(normalized),
-             {:ok, adapter} <- adapter_for(normalized),
+             :ok <- validate_adapter_ref(normalized),
+             {:ok, adapter} <- managed_adapter_for(attrs),
              {:ok, provider} <- provider_for(normalized),
              {:ok, model} <- required_binary(normalized, :model) do
           refs = ref_projection(normalized)
@@ -160,21 +147,20 @@ defmodule Inference.GovernedAuthority do
             |> Map.put(:model_account_ref, fetch(normalized, :model_account_ref))
             |> Map.put(:service_identity_ref, fetch(normalized, :service_identity_ref))
             |> Map.put(:service_principal_ref, fetch(normalized, :service_principal_ref))
-            |> Map.put(:redaction_values, redaction_values(normalized))
 
           {:ok,
            attrs
-           |> Map.drop([:governed_authority])
+           |> Map.drop([:governed_authority, :managed_adapter])
            |> Map.merge(%{
              adapter: adapter,
              provider: provider,
              model: model,
              backend: optional_existing(normalized, :backend),
              admitted_kinds: fetch(normalized, :admitted_kinds, fetch(attrs, :admitted_kinds)),
-             defaults: optional_keyword(normalized, :defaults, []),
+             defaults: [],
              capabilities: fetch(attrs, :capabilities, []),
              metadata: metadata,
-             adapter_opts: optional_keyword(normalized, :adapter_opts, []),
+             adapter_opts: [],
              authority: authority_metadata(normalized)
            })}
         end
@@ -204,23 +190,14 @@ defmodule Inference.GovernedAuthority do
 
   def ref_projection(_authority), do: %{}
 
-  @spec asm_runtime_auth_opts(Client.t()) :: keyword()
-  def asm_runtime_auth_opts(%Client{authority: authority}) when is_map(authority) do
-    if fetch(authority, :adapter_ref) == "asm" do
-      authority
-      |> require_asm_runtime_auth_refs!()
-      |> asm_runtime_auth_opts_from_refs()
-    else
-      []
-    end
-  end
-
-  def asm_runtime_auth_opts(%Client{}), do: []
-
   @spec reject_direct_request_options(Client.t(), Request.t()) :: :ok | {:error, Error.t()}
   def reject_direct_request_options(%Client{} = client, %Request{} = request) do
     if governed?(client) do
-      fields = direct_request_fields(request)
+      fields =
+        request
+        |> direct_request_fields()
+        |> Kernel.++(secret_bearing_request_paths(request))
+        |> Enum.uniq()
 
       if fields == [] do
         :ok
@@ -247,6 +224,15 @@ defmodule Inference.GovernedAuthority do
     Enum.uniq(model_hit ++ option_hits)
   end
 
+  defp secret_bearing_request_paths(%Request{} = request) do
+    [
+      options: request.options,
+      metadata: request.metadata,
+      trace_context: request.trace_context
+    ]
+    |> Enum.flat_map(fn {root, value} -> secret_bearing_paths(value, [root]) end)
+  end
+
   defp reject_direct_client_fields(attrs) do
     hits =
       @direct_client_fields
@@ -259,6 +245,43 @@ defmodule Inference.GovernedAuthority do
        Error.invalid(:governed_authority, "direct governed client field is not allowed",
          fields: hits
        )}
+    end
+  end
+
+  defp reject_unsafe_authority_fields(authority) do
+    paths = secret_bearing_paths(authority, [])
+
+    unsafe_fields =
+      [:adapter_opts, :defaults, :redaction_values, :managed_adapter, :managed_adapter_opts]
+      |> Enum.filter(&has_field?(authority, &1))
+      |> Enum.map(&[&1])
+
+    case Enum.uniq(paths ++ unsafe_fields) do
+      [] ->
+        :ok
+
+      fields ->
+        {:error,
+         Error.invalid(
+           :governed_authority,
+           "governed authority must contain safe references, not materialized options",
+           fields: fields
+         )}
+    end
+  end
+
+  defp reject_secret_bearing_metadata(metadata) do
+    case secret_bearing_paths(metadata, [:metadata]) do
+      [] ->
+        :ok
+
+      fields ->
+        {:error,
+         Error.invalid(
+           :governed_authority,
+           "governed client metadata cannot contain credential material",
+           fields: fields
+         )}
     end
   end
 
@@ -280,53 +303,54 @@ defmodule Inference.GovernedAuthority do
     end
   end
 
-  defp require_asm_runtime_auth_refs!(authority) do
-    missing =
-      @asm_runtime_auth_ref_fields
-      |> Enum.reject(fn field ->
-        case fetch(authority, field) do
-          value when is_binary(value) -> String.trim(value) != ""
-          _other -> false
-        end
-      end)
+  defp validate_adapter_ref(authority) do
+    ref = fetch(authority, :adapter_ref)
 
-    if missing == [] do
-      authority
+    if ref in @adapter_refs do
+      :ok
     else
-      raise ArgumentError,
-            "governed ASM handoff requires #{Enum.map_join(missing, ", ", &to_string/1)}"
+      {:error,
+       Error.invalid(:governed_authority, "unknown governed adapter ref", adapter_ref: ref)}
     end
   end
 
-  defp asm_runtime_auth_opts_from_refs(authority) do
-    [
-      runtime_auth_mode: :governed,
-      runtime_auth_scope: :governed,
-      provider_auth_backend: :governed_authority,
-      connector_auth_backend: :governed_authority,
-      provider_account_status: :asserted,
-      authority_ref: fetch(authority, :authority_ref),
-      execution_context_ref: fetch(authority, :execution_context_ref),
-      connector_instance_ref: fetch(authority, :connector_instance_ref),
-      connector_binding_ref: fetch(authority, :connector_binding_ref),
-      provider_account_ref: fetch(authority, :provider_account_ref),
-      credential_lease_ref: fetch(authority, :credential_lease_ref),
-      native_auth_assertion_ref: fetch(authority, :native_auth_assertion_ref),
-      target_ref: fetch(authority, :target_ref),
-      operation_policy_ref: fetch(authority, :operation_policy_ref)
-    ]
+  defp managed_adapter_for(attrs) do
+    case fetch(attrs, :managed_adapter) do
+      nil ->
+        {:error,
+         Error.new(
+           :missing_credentials,
+           :credential_materialization_required,
+           "governed inference requires an injected managed-materialization adapter"
+         )}
+
+      adapter when is_atom(adapter) ->
+        validate_managed_adapter(adapter)
+
+      adapter ->
+        {:error,
+         Error.invalid(:managed_adapter, "managed adapter must be a module atom",
+           managed_adapter: adapter
+         )}
+    end
   end
 
-  defp adapter_for(authority) do
-    ref = fetch(authority, :adapter_ref)
+  defp validate_managed_adapter(adapter) do
+    cond do
+      not Code.ensure_loaded?(adapter) ->
+        {:error, Error.missing_dependency(adapter)}
 
-    case Map.fetch(@adapter_refs, ref) do
-      {:ok, adapter} ->
-        {:ok, adapter}
-
-      :error ->
+      Adapter.credential_mode(adapter) != :managed_materialization ->
         {:error,
-         Error.invalid(:governed_authority, "unknown governed adapter ref", adapter_ref: ref)}
+         Error.invalid(
+           :managed_adapter,
+           "governed inference adapter must own managed credential materialization",
+           managed_adapter: adapter,
+           credential_mode: Adapter.credential_mode(adapter)
+         )}
+
+      true ->
+        {:ok, adapter}
     end
   end
 
@@ -382,8 +406,7 @@ defmodule Inference.GovernedAuthority do
       model_account_ref: fetch(authority, :model_account_ref),
       service_identity_ref: fetch(authority, :service_identity_ref),
       service_principal_ref: fetch(authority, :service_principal_ref),
-      native_auth_assertion_ref: fetch(authority, :native_auth_assertion_ref),
-      redaction_values: redaction_values(authority)
+      native_auth_assertion_ref: fetch(authority, :native_auth_assertion_ref)
     })
   end
 
@@ -394,23 +417,61 @@ defmodule Inference.GovernedAuthority do
     {:error, Error.invalid(:governed_authority, "governed authority must be a map")}
   end
 
-  defp optional_keyword(authority, key, default) do
-    case fetch(authority, key) do
-      value when is_list(value) -> value
-      nil -> default
-      _other -> default
+  defp optional_existing(authority, key), do: fetch(authority, key)
+
+  defp secret_bearing_paths(%_struct{} = value, path) do
+    value
+    |> Map.from_struct()
+    |> secret_bearing_paths(path)
+  end
+
+  defp secret_bearing_paths(map, path) when is_map(map) do
+    Enum.flat_map(map, fn {key, value} ->
+      child_path = path ++ [key]
+
+      if secret_key?(key) do
+        [child_path]
+      else
+        secret_bearing_paths(value, child_path)
+      end
+    end)
+  end
+
+  defp secret_bearing_paths(list, path) when is_list(list) do
+    if Keyword.keyword?(list) do
+      Enum.flat_map(list, fn {key, value} ->
+        child_path = path ++ [key]
+
+        if secret_key?(key) do
+          [child_path]
+        else
+          secret_bearing_paths(value, child_path)
+        end
+      end)
+    else
+      list
+      |> Enum.with_index()
+      |> Enum.flat_map(fn {value, index} -> secret_bearing_paths(value, path ++ [index]) end)
     end
   end
 
-  defp optional_existing(authority, key), do: fetch(authority, key)
+  defp secret_bearing_paths(_value, _path), do: []
 
-  defp redaction_values(authority) do
-    authority
-    |> fetch(:redaction_values, [])
-    |> List.wrap()
-    |> Enum.filter(&is_binary/1)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.uniq()
+  defp secret_key?(key) do
+    normalized = key |> to_string() |> String.downcase()
+
+    not safe_reference_key?(normalized) and
+      Enum.any?(
+        ~w[
+          api_key apikey authorization bearer credential_header credential_material
+          credential_payload credential_query password provider_options secret token
+        ],
+        &String.contains?(normalized, &1)
+      )
+  end
+
+  defp safe_reference_key?(key) do
+    Enum.any?(~w[_ref _refs _id _ids _generation _fence], &String.ends_with?(key, &1))
   end
 
   defp has_field?(attrs, key), do: Map.has_key?(attrs, key) or Map.has_key?(attrs, to_string(key))
