@@ -205,6 +205,7 @@ defmodule InferenceTest do
     expected = %{
       Inference.Adapters.ASM => :agent_session,
       Inference.Adapters.GeminiEx => :model_endpoint,
+      Inference.Adapters.GeminiExManaged => :model_endpoint,
       Inference.Adapters.Mock => :model_endpoint,
       Inference.Adapters.ReqLLM => :model_endpoint,
       Inference.Adapters.ReqLlmNext => :model_endpoint

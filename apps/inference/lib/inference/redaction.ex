@@ -7,6 +7,10 @@ defmodule Inference.Redaction do
     api_key apikey authorization bearer credential credentials password secret token
   ]
 
+  @semantic_usage_keys ~w[
+    input_tokens output_tokens total_tokens cached_tokens thoughts_tokens
+  ]
+
   @spec redact(term()) :: term()
   def redact(value) do
     value
@@ -135,6 +139,7 @@ defmodule Inference.Redaction do
   end
 
   defp safe_reference_key?(key) do
-    Enum.any?(~w[_ref _refs _id _ids _generation _fence], &String.ends_with?(key, &1))
+    key in @semantic_usage_keys or
+      Enum.any?(~w[_ref _refs _id _ids _generation _fence], &String.ends_with?(key, &1))
   end
 end

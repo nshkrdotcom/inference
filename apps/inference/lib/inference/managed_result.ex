@@ -165,10 +165,18 @@ defmodule Inference.ManagedResult do
   end
 
   defp sanitize_event(%StreamEvent{} = event) do
-    event
-    |> Map.from_struct()
-    |> Redaction.redact()
-    |> then(&struct(StreamEvent, &1))
+    attrs =
+      event
+      |> Map.from_struct()
+      |> Redaction.redact()
+
+    attrs =
+      case event.data do
+        %Error{} = error -> Map.put(attrs, :data, sanitize_error(error))
+        _other -> attrs
+      end
+
+    struct(StreamEvent, attrs)
   end
 
   defp sanitize_event(%Error{} = error), do: sanitize_error(error)
