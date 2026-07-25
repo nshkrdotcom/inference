@@ -178,7 +178,7 @@ defmodule Inference.Adapters.GeminiExManaged do
 
   defp validate_transient_authority(authority) do
     with :ok <- ensure_provider_function(Gemini.GovernedAuthority, :new!, 1) do
-      {:ok, apply(Gemini.GovernedAuthority, :new!, [authority])}
+      {:ok, authority_call(:new!, [authority])}
     end
   rescue
     error in ArgumentError ->
@@ -192,7 +192,7 @@ defmodule Inference.Adapters.GeminiExManaged do
 
   defp authority_refs(authority) do
     with :ok <- ensure_provider_function(Gemini.GovernedAuthority, :refs, 1),
-         refs when is_map(refs) <- apply(Gemini.GovernedAuthority, :refs, [authority]) do
+         refs when is_map(refs) <- authority_call(:refs, [authority]) do
       {:ok, refs}
     else
       {:error, %Error{} = error} ->
@@ -418,9 +418,8 @@ defmodule Inference.Adapters.GeminiExManaged do
 
   defp ensure_stream_provider do
     with :ok <- ensure_provider_function(:start_stream, 2),
-         :ok <- ensure_provider_function(:subscribe_stream, 1),
-         :ok <- ensure_provider_function(:stop_stream, 1) do
-      :ok
+         :ok <- ensure_provider_function(:subscribe_stream, 1) do
+      ensure_provider_function(:stop_stream, 1)
     end
   end
 
@@ -440,7 +439,13 @@ defmodule Inference.Adapters.GeminiExManaged do
     end
   end
 
+  # Both provider entry points stay late-bound on purpose: this package declares
+  # no dependency on `gemini_ex`, so the module name must remain a runtime value
+  # that `apply/3` resolves, never a compile-time call target. Callers reach the
+  # provider only through these two indirections, after `ensure_provider_function/3`.
   defp provider_call(function, args), do: apply(Gemini, function, args)
+
+  defp authority_call(function, args), do: apply(Gemini.GovernedAuthority, function, args)
 
   defp normalize_response(result, %Client{} = client, %Request{} = request, refs) do
     case extract_text(result) do
