@@ -1,3 +1,10 @@
+# The workspace root vendors the shared dependency-source helper. Load it here
+# too, so `mix deps.sources`, `mix deps.publish_preflight`, and this package's
+# own gate all see it when they run from the package directory.
+unless Code.ensure_loaded?(DependencySources) do
+  Code.require_file("../../build_support/dependency_sources.exs", __DIR__)
+end
+
 defmodule Inference.MixProject do
   use Mix.Project
 
