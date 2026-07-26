@@ -4,6 +4,10 @@
 
 ## 0.2.0 - 2026-07-25
 
+- Publish preflight now verifies the exact local sibling release on Hex, so an
+  older package version cannot falsely satisfy release readiness. Nested
+  package tasks now resolve the workspace manifest instead of looking for one
+  inside `apps/inference`, and manifest self-entries are excluded.
 - Removed the outbound ASM strict-common preflight; ASM owns its own run-path
   option gate and the adapter no longer requires an `:asm_options_module`.
 - Made `Inference.Request.response_format` a closed, validated union
