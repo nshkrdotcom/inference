@@ -16,6 +16,7 @@ defmodule Inference.Adapters.ReqLlmNext do
     module = Keyword.get(client.adapter_opts, :executor_module, ReqLlmNext.Executor)
 
     with :ok <- Shared.ensure_dependency(module),
+         :ok <- validate_response_format(request),
          model_spec when is_binary(model_spec) <- Shared.model_spec(client, request),
          opts <- request_opts(client, request),
          {:ok, result} <- call_generate_text(module, model_spec, Request.to_prompt(request), opts) do
@@ -29,6 +30,21 @@ defmodule Inference.Adapters.ReqLlmNext do
   @impl true
   def stream(%Client{} = _client, %Request{} = _request) do
     {:error, Error.unsupported_capability(:stream, adapter: __MODULE__)}
+  end
+
+  # This adapter only drives ReqLlmNext's text executor, so it has no proven
+  # structured-output mapping. A declared JSON format is refused instead of
+  # being handed to a text call that would ignore it.
+  defp validate_response_format(%Request{response_format: response_format})
+       when response_format in [nil, :text],
+       do: :ok
+
+  defp validate_response_format(%Request{response_format: response_format}) do
+    {:error,
+     Error.response_format_unsupported(response_format,
+       adapter: __MODULE__,
+       message: "ReqLlmNext adapter drives the text executor only"
+     )}
   end
 
   defp call_generate_text(module, model_spec, prompt, opts) do

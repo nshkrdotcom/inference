@@ -86,6 +86,40 @@ defmodule Inference.Client do
     end
   end
 
+  @doc """
+  Builds a client that additionally admits `:agent_session` adapters.
+
+  The default admitted-kind set deliberately excludes `:agent_session` so an
+  agent-session runtime is never silently flattened into a completion endpoint.
+  This is the explicit, per-client opt-in; it widens one client, never the
+  default.
+  """
+  @spec agent_session(keyword() | map()) :: {:ok, t()} | {:error, Error.t()}
+  def agent_session(attrs) when is_list(attrs), do: attrs |> Map.new() |> agent_session()
+
+  def agent_session(attrs) when is_map(attrs) do
+    admitted_kinds = fetch(attrs, :admitted_kinds, @default_admitted_kinds)
+
+    if is_list(admitted_kinds) do
+      new(Map.put(attrs, :admitted_kinds, admitted_kinds ++ [:agent_session]))
+    else
+      new(attrs)
+    end
+  end
+
+  def agent_session(other), do: new(other)
+
+  @doc """
+  Builds an agent-session-admitting client or raises when invalid.
+  """
+  @spec agent_session!(keyword() | map()) :: t()
+  def agent_session!(attrs) do
+    case agent_session(attrs) do
+      {:ok, client} -> client
+      {:error, error} -> raise ArgumentError, Exception.message(error)
+    end
+  end
+
   defp validate(%__MODULE__{adapter: adapter}) when not is_atom(adapter) do
     {:error, Error.invalid(:adapter, "adapter must be a module atom", adapter: adapter)}
   end

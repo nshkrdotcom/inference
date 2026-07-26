@@ -3,7 +3,7 @@ defmodule Inference.Request do
   Provider-neutral inference request.
   """
 
-  alias Inference.{Error, Message}
+  alias Inference.{Error, Message, ResponseFormat}
 
   defstruct [
     :id,
@@ -28,7 +28,7 @@ defmodule Inference.Request do
           temperature: number() | nil,
           top_p: number() | nil,
           max_tokens: pos_integer() | nil,
-          response_format: term(),
+          response_format: ResponseFormat.t() | nil,
           metadata: map(),
           trace_context: map() | nil,
           session: term(),
@@ -145,5 +145,9 @@ defmodule Inference.Request do
     {:error, Error.invalid(:options, "options must be a keyword list", options: options)}
   end
 
-  defp validate(%__MODULE__{} = request), do: {:ok, request}
+  defp validate(%__MODULE__{} = request) do
+    with {:ok, response_format} <- ResponseFormat.normalize(request.response_format) do
+      {:ok, %{request | response_format: response_format}}
+    end
+  end
 end

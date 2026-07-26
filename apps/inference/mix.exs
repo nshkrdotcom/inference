@@ -132,6 +132,7 @@ defmodule Inference.MixProject do
           Inference.Adapter,
           Inference.GovernedAuthority,
           Inference.Capability,
+          Inference.ResponseFormat,
           Inference.Error,
           Inference.StreamEvent,
           Inference.Trace,
@@ -141,6 +142,7 @@ defmodule Inference.MixProject do
           Inference.Adapters.Mock,
           Inference.Adapters.ASM,
           Inference.Adapters.GeminiEx,
+          Inference.Adapters.GeminiExManaged,
           Inference.Adapters.ReqLlmNext,
           Inference.Adapters.ReqLLM
         ],

@@ -46,14 +46,24 @@ installed ASM module exposes `query/3`, `start_session/1`, `stream/3`, and
 provider atom remains the query target; pid sessions are treated as external
 sessions.
 
-The ASM adapter is intentionally common-only. It calls ASM strict preflight for
-the final option list, does not accept provider SDK options through generic
-inference request options, and rejects tool-bearing requests until ASM has a
-documented all-provider host-tool contract.
+The ASM adapter is intentionally common-only and completion-only. ASM owns the
+run-path option gate (`ASM.Options.validate/2`), so the adapter does not call
+ASM's strict-common preflight from the outside; it maps the neutral request onto
+ASM options, locks `completion_only: true`, and rejects tool-bearing requests
+until ASM has a documented all-provider host-tool contract.
 
-When overriding the ASM module for tests or compatibility, also pass an explicit
-`:asm_options_module`. The default options module is bounded to the default ASM
-module and is not derived from custom module names.
+A `{:json_schema, %{schema: schema}}` response format becomes ASM's
+`:output_schema` option (inline JSON for Claude, a materialized schema file for
+Codex). Schemaless `{:json, :object}` mode is refused, because ASM structured
+output is schema-driven.
+
+`Inference.capabilities/1` answers whether the bound provider does JSON Schema.
+The claim is read at runtime from ASM's own feature manifest
+(`ASM.ProviderFeatures.common_feature(provider, :structured_output)`); a
+provider that declares no such feature — or an application that has not
+installed ASM at all — reports `:unknown` rather than assumed support. Tests can
+inject a stand-in through the `:asm_provider_features_module` adapter option,
+the same way `:asm_module` overrides the runtime module.
 
 ## ReqLlmNext
 

@@ -7,13 +7,19 @@ defmodule Inference do
   configured adapter module.
   """
 
-  alias Inference.{Client, Error, GovernedAuthority, ManagedResult, Request}
+  alias Inference.{Adapter, Capability, Client, Error, GovernedAuthority, ManagedResult, Request}
 
   @doc """
   Builds a client.
   """
   @spec client(keyword() | map()) :: {:ok, Client.t()} | {:error, Error.t()}
   def client(attrs), do: Client.new(attrs)
+
+  @doc """
+  Reports the capabilities of a configured client before dispatch.
+  """
+  @spec capabilities(Client.t()) :: [Capability.t()]
+  def capabilities(%Client{} = client), do: Adapter.capabilities(client)
 
   @doc """
   Builds a client or raises when invalid.

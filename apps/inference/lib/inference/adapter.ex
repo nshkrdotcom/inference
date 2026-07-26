@@ -24,7 +24,15 @@ defmodule Inference.Adapter do
   @callback stream(Inference.Client.t(), Inference.Request.t()) ::
               {:ok, Enumerable.t()} | {:error, Inference.Error.t()}
 
-  @optional_callbacks stream: 2, credential_mode: 0
+  @doc """
+  Reports what this adapter can do for the given client's provider binding.
+
+  Adapters that can answer capability questions implement this callback; the
+  answer must come from a real provider feature declaration, never a guess.
+  """
+  @callback capabilities(Inference.Client.t()) :: [Inference.Capability.t()]
+
+  @optional_callbacks stream: 2, credential_mode: 0, capabilities: 1
 
   @doc "Returns the closed set of valid provider kinds."
   @spec provider_kinds() :: [provider_kind()]
@@ -50,4 +58,22 @@ defmodule Inference.Adapter do
   @doc "Reports whether a value belongs to the closed provider-kind set."
   @spec valid_provider_kind?(term()) :: boolean()
   def valid_provider_kind?(kind), do: kind in @provider_kinds
+
+  @doc """
+  Resolves the capabilities of a configured client.
+
+  Adapters that implement `c:capabilities/1` answer for their provider binding.
+  Adapters that do not fall back to the client's declared capabilities.
+  """
+  @spec capabilities(Inference.Client.t()) :: [Inference.Capability.t()]
+  def capabilities(client) do
+    adapter = client.adapter
+
+    if is_atom(adapter) and Code.ensure_loaded?(adapter) and
+         function_exported?(adapter, :capabilities, 1) do
+      adapter.capabilities(client)
+    else
+      client.capabilities
+    end
+  end
 end

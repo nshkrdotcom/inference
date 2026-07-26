@@ -60,6 +60,43 @@ defmodule Inference.Error do
     new(:unsupported_capability, :unsupported_capability, message, metadata)
   end
 
+  @doc """
+  Reports that an adapter cannot map a declared `Inference.ResponseFormat`.
+
+  Adapters return this instead of silently dropping the declared format.
+  """
+  @spec response_format_unsupported(term(), keyword()) :: t()
+  def response_format_unsupported(response_format, metadata \\ []) do
+    message =
+      Keyword.get(
+        metadata,
+        :message,
+        "adapter cannot map response_format #{inspect(response_format)}"
+      )
+
+    new(
+      :unsupported_capability,
+      :response_format_unsupported,
+      message,
+      Keyword.put(metadata, :response_format, response_format)
+    )
+  end
+
+  @doc """
+  Reports a provider-returned tool call on a completion-only adapter.
+
+  A returned tool call is a contract failure. Adapters never execute one.
+  """
+  @spec unexpected_tool_call(list(), keyword()) :: t()
+  def unexpected_tool_call(tool_calls, metadata \\ []) when is_list(tool_calls) do
+    new(
+      :invalid_response,
+      :unexpected_tool_call,
+      "completion-only adapter received a provider tool call",
+      Keyword.put(metadata, :tool_calls, tool_calls)
+    )
+  end
+
   def provider_error(reason, metadata \\ []) do
     new(:provider_error, normalize_reason(reason), "provider error: #{inspect(reason)}", metadata)
   end

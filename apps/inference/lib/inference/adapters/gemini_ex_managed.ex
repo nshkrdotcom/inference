@@ -11,7 +11,8 @@ defmodule Inference.Adapters.GeminiExManaged do
 
   @behaviour Inference.Adapter
 
-  alias Inference.{Client, Error, Request, Response, StreamEvent}
+  alias Inference.Adapters.{GeminiResponse, Shared}
+  alias Inference.{Capability, Client, Error, Request, Response, ResponseFormat, StreamEvent}
 
   @safe_authority_fields [
     :authority_ref,
@@ -96,12 +97,28 @@ defmodule Inference.Adapters.GeminiExManaged do
   ]
 
   @default_receive_timeout 60_000
+  @json_mime_type "application/json"
 
   @impl true
   def provider_kind, do: :model_endpoint
 
   @impl true
   def credential_mode, do: :managed_materialization
+
+  @impl true
+  def capabilities(%Client{} = _client) do
+    [
+      Capability.new(:response_format_text, :supported),
+      Capability.new(:response_format_json_object, :supported, %{
+        generation_option: :response_mime_type
+      }),
+      Capability.new(:response_format_json_schema, :supported, %{
+        generation_option: :response_json_schema
+      }),
+      Capability.new(:tools, :unsupported, %{profile: :completion_only}),
+      Capability.new(:streaming, :supported)
+    ]
+  end
 
   @impl true
   def complete(%Client{} = client, %Request{} = request) do
@@ -288,7 +305,7 @@ defmodule Inference.Adapters.GeminiExManaged do
   end
 
   defp provider_opts(%Client{} = client, %Request{} = request) do
-    with :ok <- validate_response_format(request),
+    with {:ok, format_opts} <- response_format_opts(request),
          :ok <- validate_option_set(client.defaults, :client_defaults),
          :ok <- validate_option_set(request.options, :request_options),
          :ok <- validate_option_model(client.model, client.defaults, request.options),
@@ -301,6 +318,7 @@ defmodule Inference.Adapters.GeminiExManaged do
         |> maybe_put(:temperature, request.temperature)
         |> maybe_put(:top_p, request.top_p)
         |> maybe_put(:max_output_tokens, max_output_tokens)
+        |> Keyword.merge(format_opts)
         |> Keyword.put(:model, client.model)
         |> Keyword.put(:max_retries, 0)
         |> Keyword.put(
@@ -312,13 +330,23 @@ defmodule Inference.Adapters.GeminiExManaged do
     end
   end
 
-  defp validate_response_format(%Request{response_format: nil}), do: :ok
+  # Managed Gemini maps the provider-neutral format onto the same generation
+  # config the direct adapter uses; it never drops a declared format.
+  defp response_format_opts(%Request{response_format: nil}), do: {:ok, []}
+  defp response_format_opts(%Request{response_format: :text}), do: {:ok, []}
 
-  defp validate_response_format(%Request{}) do
+  defp response_format_opts(%Request{response_format: {:json, :object}}),
+    do: {:ok, [response_mime_type: @json_mime_type]}
+
+  defp response_format_opts(%Request{response_format: {:json_schema, %{schema: schema}}})
+       when is_map(schema),
+       do: {:ok, [response_json_schema: schema, response_mime_type: @json_mime_type]}
+
+  defp response_format_opts(%Request{response_format: response_format}) do
     {:error,
-     Error.unsupported_capability(:response_format,
+     Error.response_format_unsupported(response_format,
        adapter: __MODULE__,
-       message: "managed Gemini does not accept provider-neutral response_format"
+       message: "managed Gemini responseJsonSchema takes a JSON Schema map"
      )}
   end
 
@@ -448,14 +476,21 @@ defmodule Inference.Adapters.GeminiExManaged do
   defp authority_call(function, args), do: apply(Gemini.GovernedAuthority, function, args)
 
   defp normalize_response(result, %Client{} = client, %Request{} = request, refs) do
+    with {:ok, result} <- reject_tool_calls(result) do
+      build_response(result, client, request, refs)
+    end
+  end
+
+  defp build_response(result, %Client{} = client, %Request{} = request, refs) do
     case extract_text(result) do
       text when is_binary(text) and text != "" ->
         {:ok,
          Response.new(
-           id: response_field(result, [:response_id, :responseId, :id]),
+           id: GeminiResponse.response_id(result),
            provider: :gemini,
            model: client.model,
            text: text,
+           object: object(request, text),
            usage: extract_usage(result),
            finish_reason: extract_finish_reason(result),
            raw: result,
@@ -473,78 +508,19 @@ defmodule Inference.Adapters.GeminiExManaged do
     end
   end
 
-  defp extract_text(text) when is_binary(text), do: text
-
-  defp extract_text(result) when is_map(result) do
-    direct = map_value(result, :text)
-
-    if is_binary(direct) do
-      direct
-    else
-      result
-      |> map_value(:candidates, [])
-      |> List.wrap()
-      |> Enum.flat_map(&candidate_text_parts/1)
-      |> Enum.join("")
-    end
+  defp reject_tool_calls(result) do
+    Shared.reject_tool_calls(result, GeminiResponse.tool_calls(result), adapter: __MODULE__)
   end
 
-  defp extract_text(_result), do: ""
-
-  defp candidate_text_parts(candidate) when is_map(candidate) do
-    candidate
-    |> map_value(:content, %{})
-    |> map_value(:parts, [])
-    |> List.wrap()
-    |> Enum.flat_map(fn part ->
-      case map_value(part, :text) do
-        text when is_binary(text) -> [text]
-        _other -> []
-      end
-    end)
+  defp object(%Request{response_format: response_format}, text) do
+    if ResponseFormat.json?(response_format), do: GeminiResponse.decode_object(text)
   end
 
-  defp candidate_text_parts(_candidate), do: []
+  defp extract_text(result), do: GeminiResponse.text(result)
 
-  defp extract_usage(result) when is_map(result) do
-    result
-    |> map_value(:usageMetadata, map_value(result, :usage_metadata))
-    |> normalize_usage()
-  end
+  defp extract_usage(result), do: GeminiResponse.usage(result)
 
-  defp extract_usage(_result), do: nil
-
-  defp normalize_usage(nil), do: nil
-
-  defp normalize_usage(usage) when is_map(usage) do
-    %{
-      input_tokens: map_value(usage, :promptTokenCount, map_value(usage, :prompt_token_count)),
-      output_tokens:
-        map_value(usage, :candidatesTokenCount, map_value(usage, :candidates_token_count)),
-      total_tokens: map_value(usage, :totalTokenCount, map_value(usage, :total_token_count)),
-      cached_tokens:
-        map_value(usage, :cachedContentTokenCount, map_value(usage, :cached_content_token_count)),
-      thoughts_tokens:
-        map_value(usage, :thoughtsTokenCount, map_value(usage, :thoughts_token_count))
-    }
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new()
-  end
-
-  defp normalize_usage(_usage), do: nil
-
-  defp extract_finish_reason(result) when is_map(result) do
-    result
-    |> map_value(:candidates, [])
-    |> List.wrap()
-    |> Enum.find_value(&map_value(&1, :finishReason, map_value(&1, :finish_reason)))
-  end
-
-  defp extract_finish_reason(_result), do: nil
-
-  defp response_field(result, fields) do
-    Enum.find_value(fields, &map_value(result, &1))
-  end
+  defp extract_finish_reason(result), do: GeminiResponse.finish_reason(result)
 
   defp managed_stream(prompt, provider_opts, receive_timeout, refs) do
     Stream.resource(
@@ -674,35 +650,9 @@ defmodule Inference.Adapters.GeminiExManaged do
      }}
   end
 
-  defp extract_stream_usage(data) when is_map(data) do
-    data
-    |> map_value(:usageMetadata, map_value(data, :usage_metadata))
-    |> normalize_stream_usage()
-  end
-
-  defp extract_stream_usage(_data), do: nil
-
-  defp normalize_stream_usage(nil), do: nil
-
-  defp normalize_stream_usage(usage) when is_map(usage) do
-    %{
-      input_tokens: map_value(usage, :promptTokenCount, map_value(usage, :prompt_token_count)),
-      output_tokens:
-        map_value(usage, :candidatesTokenCount, map_value(usage, :candidates_token_count)),
-      total_tokens: map_value(usage, :totalTokenCount, map_value(usage, :total_token_count)),
-      cached_tokens:
-        map_value(usage, :cachedContentTokenCount, map_value(usage, :cached_content_token_count)),
-      thoughts_tokens:
-        map_value(usage, :thoughtsTokenCount, map_value(usage, :thoughts_token_count))
-    }
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new()
-  end
-
-  defp normalize_stream_usage(_usage), do: nil
+  defp extract_stream_usage(data), do: GeminiResponse.usage(data)
 
   defp text_event("", _refs), do: nil
-  defp text_event(nil, _refs), do: nil
 
   defp text_event(text, refs) when is_binary(text) do
     %StreamEvent{type: :delta, data: text, metadata: stream_metadata(refs)}
@@ -755,14 +705,6 @@ defmodule Inference.Adapters.GeminiExManaged do
   defp safe_kind(%{__struct__: module}) when is_atom(module), do: module
   defp safe_kind(value) when is_atom(value), do: value
   defp safe_kind(_value), do: :redacted
-
-  defp map_value(map, key, default \\ nil)
-
-  defp map_value(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp map_value(_map, _key, default), do: default
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)

@@ -110,13 +110,30 @@ Requests can also be built explicitly:
 - Adapter modules translate to and from provider libraries; they do not hide
   provider setup, credentials, or runtime requirements.
 - Clients admit model and local-model endpoints by default. Agent-session
-  adapters require `admitted_kinds: [:agent_session]` so a generic inference
-  caller cannot silently flatten a stateful coding-agent session.
-- `Inference.Adapters.ASM` is common-only. It validates options through ASM
-  strict preflight, rejects provider-native tool/configuration keys, and does
-  not expose ASM host tools until ASM has a proven all-provider tool contract.
-  Custom ASM modules must provide an explicit `:asm_options_module`; only the
-  default ASM module uses the built-in `ASM.Options` default.
+  adapters require an explicit opt-in — `Inference.Client.agent_session!/1`, or
+  `admitted_kinds: [:agent_session]` — so a generic inference caller cannot
+  silently flatten a stateful coding-agent session.
+- `Inference.Request.response_format` is a closed union: `nil`, `:text`,
+  `{:json, :object}`, or
+  `{:json_schema, %{name: name, schema: schema, strict: strict?}}`. Every
+  adapter maps the declared format onto a real provider option or refuses it
+  with a `:response_format_unsupported` error. Dropping a declared format is a
+  contract violation.
+- Adapters report `Inference.Capability` claims through
+  `Inference.capabilities/1`, so a registry can ask "does this provider accept
+  JSON Schema?" before dispatch. An adapter that cannot establish a claim
+  reports `:unknown`; it never assumes support.
+- `Inference.Adapters.ASM` is common-only and completion-only. ASM owns its own
+  option contract (`ASM.Options.validate/2`), so the adapter does not re-impose
+  ASM's strict-common preflight from the outside; it maps
+  `{:json_schema, _}` onto ASM's `:output_schema`, locks the completion-only
+  provider profile, and rejects provider-native tool/configuration keys until
+  ASM has a proven all-provider tool contract.
+- Provider errors keep their cause: `ASM.Error` kinds and `Gemini.Error`
+  http statuses map onto the declared `:timeout`, `:rate_limited`,
+  `:missing_credentials`, `:missing_dependency`, `:invalid`, and
+  `:invalid_response` categories, and the provider's own error value is
+  preserved under `metadata.provider_error`.
 - Jido governed execution is owned by `jido_integration`, which implements
   `Inference.Adapter` from the Jido side.
 - Direct `:inference` adapters are standalone mechanics. They do not decide

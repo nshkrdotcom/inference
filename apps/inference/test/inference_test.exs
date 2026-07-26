@@ -4,7 +4,20 @@ defmodule InferenceTest do
   alias Inference.{Client, Error, Message, Request, Response}
 
   defmodule FakeGemini do
-    def text(prompt, opts), do: {:ok, "gemini: #{prompt} #{opts[:model]}"}
+    def generate(prompt, opts) do
+      {:ok,
+       %{
+         response_id: "gemini-1",
+         model_version: opts[:model],
+         candidates: [
+           %{
+             content: %{parts: [%{text: "gemini: #{prompt} #{opts[:model]}"}]},
+             finish_reason: "STOP"
+           }
+         ],
+         usage_metadata: %{prompt_token_count: 1, total_token_count: 2}
+       }}
+    end
   end
 
   defmodule FakeASMResult do
@@ -243,6 +256,83 @@ defmodule InferenceTest do
     refute_received {:asm_query, _provider, _prompt, _opts}
   end
 
+  test "agent_session! is the explicit opt-in and does not widen the default" do
+    client =
+      Client.agent_session!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "codex",
+        adapter_opts: [asm_module: FakeASM]
+      )
+
+    assert client.admitted_kinds == [:model_endpoint, :local_model_endpoint, :agent_session]
+    assert {:ok, _response} = Inference.complete(client, "hello")
+
+    assert %Client{admitted_kinds: [:model_endpoint, :local_model_endpoint]} =
+             Client.new!(adapter: Inference.Adapters.Mock, provider: :mock)
+  end
+
+  test "agent_session/1 keeps an explicit admitted-kind list and still opts in" do
+    assert {:ok, %Client{admitted_kinds: [:local_model_endpoint, :agent_session]}} =
+             Client.agent_session(
+               adapter: Inference.Adapters.ASM,
+               admitted_kinds: [:local_model_endpoint],
+               provider: :codex
+             )
+  end
+
+  test "agent_session/1 reports invalid client attrs instead of raising" do
+    assert {:error, %Error{category: :invalid, reason: :admitted_kinds}} =
+             Client.agent_session(
+               adapter: Inference.Adapters.ASM,
+               admitted_kinds: [:not_a_kind],
+               provider: :codex
+             )
+  end
+
+  test "reqllm next adapter refuses a structured response format it cannot map" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLlmNext,
+        provider: :openai,
+        model: "gpt-test",
+        adapter_opts: [executor_module: FakeReqLlmNext]
+      )
+
+    assert {:error, %Error{reason: :response_format_unsupported}} =
+             Inference.complete(client, "hello", response_format: {:json, :object})
+  end
+
+  test "req llm adapter refuses schemaless json object mode" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: :openai,
+        model: "gpt-test",
+        adapter_opts: [req_llm_module: FakeReqLLM]
+      )
+
+    assert {:error, %Error{reason: :response_format_unsupported}} =
+             Inference.complete(client, "hello", response_format: {:json, :object})
+  end
+
+  test "mock adapter refuses a json format it was not configured to honor" do
+    client = Client.new!(adapter: Inference.Adapters.Mock, provider: :mock)
+
+    assert {:error, %Error{reason: :response_format_unsupported}} =
+             Inference.complete(client, "hello", response_format: {:json, :object})
+
+    configured =
+      Client.new!(
+        adapter: Inference.Adapters.Mock,
+        provider: :mock,
+        adapter_opts: [response_object: %{"answer" => "42"}]
+      )
+
+    assert {:ok, %Response{object: %{"answer" => "42"}}} =
+             Inference.complete(configured, "hello", response_format: {:json, :object})
+  end
+
   test "custom adapters without provider_kind fail clearly" do
     client = Client.new!(adapter: UnclassifiedAdapter, provider: :custom)
 
@@ -270,6 +360,9 @@ defmodule InferenceTest do
 
     assert {:ok, response} = Inference.complete(client, "hello")
     assert response.text =~ "gemini:"
+    assert response.id == "gemini-1"
+    assert response.usage == %{input_tokens: 1, total_tokens: 2}
+    assert response.finish_reason == "STOP"
   end
 
   test "asm adapter works with fake module" do
@@ -285,12 +378,12 @@ defmodule InferenceTest do
     assert {:ok, response} = Inference.complete(client, "hello")
     assert response.text =~ "asm codex"
     assert response.metadata.run_id == "run-1"
-    assert_received {:asm_preflight, :codex, opts}
+    assert_received {:asm_query, :codex, _prompt, opts}
     assert opts[:model] == "codex"
     refute Keyword.has_key?(opts, :provider)
   end
 
-  test "asm adapter requires explicit options module for custom ASM modules" do
+  test "asm adapter needs no options module because ASM owns its option contract" do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
@@ -300,11 +393,9 @@ defmodule InferenceTest do
         adapter_opts: [asm_module: FakeASM]
       )
 
-    assert {:error, %Error{category: :invalid, reason: :asm_options_module} = error} =
-             Inference.complete(client, "hello")
-
-    assert error.metadata.asm_module == FakeASM
-    refute_received {:asm_query, _provider, _prompt, _opts}
+    assert {:ok, response} = Inference.complete(client, "hello")
+    assert response.text =~ "asm codex"
+    assert_received {:asm_query, :codex, _prompt, _opts}
   end
 
   test "asm adapter uses internal prompt override without forwarding it as provider option" do
@@ -360,7 +451,7 @@ defmodule InferenceTest do
     refute_received {:asm_query, _provider, _prompt, _opts}
   end
 
-  test "asm adapter routes generic options through ASM strict preflight" do
+  test "asm adapter leaves provider-native option validation to ASM itself" do
     client =
       Client.new!(
         adapter: Inference.Adapters.ASM,
@@ -374,12 +465,11 @@ defmodule InferenceTest do
         ]
       )
 
-    assert {:error, %Error{category: :invalid, reason: :asm_options}} =
-             Inference.complete(client, "hello")
+    assert {:ok, _response} = Inference.complete(client, "hello")
 
-    assert_received {:asm_preflight, :gemini, opts}
+    refute_received {:asm_preflight, _provider, _opts}
+    assert_received {:asm_query, :gemini, _prompt, opts}
     assert opts[:system_prompt] == "provider-native"
-    refute_received {:asm_query, _provider, _prompt, _opts}
   end
 
   test "reqllm next adapter works with fake module" do
@@ -500,9 +590,15 @@ defmodule InferenceTest do
 
     assert {:ok, response} =
              Inference.complete(client, "hello",
-               response_format: [instruction: [type: :string, required: true]]
+               response_format:
+                 {:json_schema,
+                  %{
+                    name: "instruction",
+                    schema: [instruction: [type: :string, required: true]]
+                  }}
              )
 
+    assert response.raw.schema == [instruction: [type: :string, required: true]]
     assert response.object["instruction"] =~ "structured %{"
     assert response.object["instruction"] =~ "provider: :gemini"
     assert response.object["instruction"] =~ "id: \"gemini-test\""

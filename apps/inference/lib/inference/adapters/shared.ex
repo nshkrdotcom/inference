@@ -1,6 +1,7 @@
 defmodule Inference.Adapters.Shared do
   @moduledoc false
 
+  alias Inference.Adapters.ProviderError
   alias Inference.{Client, Error, Request, Response, Trace}
 
   @spec ensure_dependency(module()) :: :ok | {:error, Error.t()}
@@ -12,6 +13,9 @@ defmodule Inference.Adapters.Shared do
     end
   end
 
+  # `response_format` is deliberately NOT part of this bag: it is a
+  # provider-neutral declaration each adapter must map onto a real provider
+  # option or refuse. Passing it through opaquely is how it used to be dropped.
   @spec request_opts(Client.t(), Request.t()) :: keyword()
   def request_opts(%Client{} = client, %Request{} = request) do
     client.defaults
@@ -20,7 +24,40 @@ defmodule Inference.Adapters.Shared do
     |> maybe_put(:temperature, request.temperature)
     |> maybe_put(:top_p, request.top_p)
     |> maybe_put(:max_tokens, request.max_tokens)
-    |> maybe_put(:response_format, request.response_format)
+  end
+
+  @doc """
+  Rejects provider tool options on a completion-only adapter.
+
+  `metadata` carries the adapter module and a `:message_prefix` describing the
+  adapter's own tool posture.
+  """
+  @spec reject_tool_options(keyword(), [atom()], keyword()) :: :ok | {:error, Error.t()}
+  def reject_tool_options(opts, tool_keys, metadata) when is_list(opts) do
+    {prefix, metadata} = Keyword.pop!(metadata, :message_prefix)
+
+    case Enum.find(tool_keys, &Keyword.has_key?(opts, &1)) do
+      nil ->
+        :ok
+
+      key ->
+        {:error,
+         Error.unsupported_capability(
+           :tools,
+           Keyword.merge(metadata, message: "#{prefix}; rejected #{inspect(key)}", key: key)
+         )}
+    end
+  end
+
+  @doc """
+  Fails closed when a completion-only provider returns a tool call.
+  """
+  @spec reject_tool_calls(term(), list(), keyword()) :: {:ok, term()} | {:error, Error.t()}
+  def reject_tool_calls(result, tool_calls, metadata) do
+    case tool_calls do
+      [] -> {:ok, result}
+      tool_calls -> {:error, Error.unexpected_tool_call(tool_calls, metadata)}
+    end
   end
 
   @spec response_from_result(term(), Client.t(), Request.t(), keyword()) :: Response.t()
@@ -36,7 +73,7 @@ defmodule Inference.Adapters.Shared do
     object = Keyword.get_lazy(opts, :object, fn -> extract_field(result, :object) end)
 
     Response.new(
-      id: extract_field(result, :id),
+      id: Keyword.get_lazy(opts, :id, fn -> extract_field(result, :id) end),
       provider: client.provider,
       model: request.model || client.model || model_id(extract_field(result, :model)),
       text: text,
@@ -63,9 +100,7 @@ defmodule Inference.Adapters.Shared do
   end
 
   @spec normalize_error(term(), keyword()) :: Error.t()
-  def normalize_error(reason, metadata \\ [])
-  def normalize_error(%Error{} = error, _metadata), do: error
-  def normalize_error(reason, metadata), do: Error.provider_error(reason, metadata)
+  def normalize_error(reason, metadata \\ []), do: ProviderError.normalize(reason, metadata)
 
   def extract_text(text) when is_binary(text), do: text
   def extract_text(nil), do: ""

@@ -29,9 +29,23 @@ The testkit covers:
 
 - successful text completion;
 - provider error normalization;
+- the response-format contract — for every member of the closed union the
+  adapter must map it or refuse it with `:response_format_unsupported`;
+- capability reporting — every reported `Inference.Capability` is well formed,
+  names are unique, and `:require` names must be reported;
 - unsupported stream behavior;
 - metadata redaction;
 - trace metadata redaction.
+
+```elixir
+AdapterCase.assert_response_format_contract(MyAdapter,
+  adapter_opts: [fake_backend: MyFakeBackend]
+)
+
+AdapterCase.assert_capability_contract(MyAdapter,
+  require: [:response_format_json_schema, :tools]
+)
+```
 
 Default tests should use fake provider modules. Live provider tests belong in
 explicitly gated examples or smoke-test suites.

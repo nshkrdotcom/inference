@@ -81,12 +81,11 @@ The compatibility adapters currently use this for migration support:
 - `Inference.Adapters.ASM` accepts `:prompt` to preserve raw CLI prompt text and
   converts string sessions to ASM `:session_id` options. `:prompt` is internal
   to the inference adapter and is removed before query, session, or stream
-  options are passed to Agent Session Manager. The adapter validates the final
-  ASM option list through strict ASM preflight and rejects provider-native tool
-  keys such as `:tools`, `:tool_choice`, `:host_tools`, and `:dynamic_tools`
-  until ASM exposes a proven all-provider tool contract.
-  Custom ASM modules must set `:asm_options_module` explicitly; the source-owned
-  default options module applies only to the default ASM module.
+  options are passed to Agent Session Manager. ASM validates the final option
+  list itself, so the adapter forwards provider-native options rather than
+  pre-judging them; it still rejects tool keys such as `:tools`, `:tool_choice`,
+  `:host_tools`, and `:dynamic_tools` until ASM exposes a proven all-provider
+  tool contract, and it locks `completion_only: true` on every call.
   Gemini CLI is retired. Antigravity is the current Google coding-agent SDK;
   `GeminiEx` remains the distinct direct Gemini API adapter.
 

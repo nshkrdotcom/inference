@@ -39,6 +39,32 @@ defmodule Gemini do
            }
          }}
 
+      :structured ->
+        {:ok,
+         %{
+           "candidates" => [
+             %{
+               "content" => %{"parts" => [%{"text" => ~s({"answer":"42"})}]},
+               "finishReason" => "STOP"
+             }
+           ]
+         }}
+
+      :tool_call ->
+        {:ok,
+         %{
+           "candidates" => [
+             %{
+               "content" => %{
+                 "parts" => [
+                   %{"text" => "calling"},
+                   %{"functionCall" => %{"name" => "lookup", "args" => %{}}}
+                 ]
+               }
+             }
+           ]
+         }}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -177,7 +203,7 @@ defmodule Inference.Adapters.GeminiExManagedTest do
   use ExUnit.Case, async: false
 
   alias Inference.Adapters.GeminiExManaged
-  alias Inference.{Client, Error, Response, StreamEvent}
+  alias Inference.{Capability, Client, Error, Response, StreamEvent}
 
   @model "gemini-2.5-flash"
 
@@ -216,6 +242,63 @@ defmodule Inference.Adapters.GeminiExManagedTest do
     refute Keyword.has_key?(opts, :api_key)
     refute Keyword.has_key?(opts, :auth)
     refute Keyword.has_key?(opts, :base_url)
+  end
+
+  test "maps a declared json schema onto the managed generation config and object" do
+    Gemini.configure_test(:structured, self())
+    schema = %{"type" => "object", "properties" => %{"answer" => %{"type" => "string"}}}
+
+    assert {:ok, response} =
+             Inference.complete(client(), "hello",
+               response_format: {:json_schema, %{name: "answer", schema: schema}}
+             )
+
+    assert_received {:gemini_generate, "hello", opts}
+    assert opts[:response_json_schema] == schema
+    assert opts[:response_mime_type] == "application/json"
+    refute Keyword.has_key?(opts, :response_format)
+
+    assert response.text == ~s({"answer":"42"})
+    assert response.object == %{"answer" => "42"}
+  end
+
+  test "maps schemaless json object mode onto the managed generation config" do
+    Gemini.configure_test(:structured, self())
+
+    assert {:ok, response} =
+             Inference.complete(client(), "hello", response_format: {:json, :object})
+
+    assert_received {:gemini_generate, "hello", opts}
+    assert opts[:response_mime_type] == "application/json"
+    refute Keyword.has_key?(opts, :response_json_schema)
+    assert response.object == %{"answer" => "42"}
+  end
+
+  test "refuses a response format it cannot map instead of dropping it" do
+    assert {:error, %Error{category: :unsupported_capability} = error} =
+             Inference.complete(client(), "hello",
+               response_format:
+                 {:json_schema, %{name: "answer", schema: [answer: [type: :string]]}}
+             )
+
+    assert error.reason == :response_format_unsupported
+    refute_received {:gemini_generate, _prompt, _opts}
+  end
+
+  test "a provider function call is a typed contract failure, never executed" do
+    Gemini.configure_test(:tool_call, self())
+
+    assert {:error, %Error{category: :invalid_response, reason: :unexpected_tool_call}} =
+             Inference.complete(client(), "hello")
+  end
+
+  test "reports managed capabilities before dispatch" do
+    capabilities = Inference.capabilities(client())
+
+    assert Capability.supported?(capabilities, :response_format_json_schema)
+    assert Capability.supported?(capabilities, :response_format_json_object)
+    assert Capability.supported?(capabilities, :streaming)
+    refute Capability.supported?(capabilities, :tools)
   end
 
   test "forwards provider delta boundaries, usage, and terminal state in order" do

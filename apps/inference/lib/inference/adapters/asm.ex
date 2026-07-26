@@ -3,15 +3,28 @@ defmodule Inference.Adapters.ASM do
   Adapter for Agent Session Manager.
 
   The consuming application must install and configure `:agent_session_manager`.
+
+  ASM owns its own option contract: `ASM.Options.validate/2` is the run-path
+  gate. This adapter does not re-impose ASM's strict-common preflight from the
+  outside; it maps the provider-neutral request onto ASM options, locks the
+  completion-only provider profile, and refuses tools it cannot honor.
+
+  `{:json_schema, _}` response formats map onto ASM's `:output_schema` option.
   """
 
   @behaviour Inference.Adapter
 
   alias Inference.Adapters.Shared
-  alias Inference.{Client, Error, Request, StreamEvent}
+  alias Inference.{Capability, Client, Error, Request, StreamEvent}
 
   @unadmitted_tool_keys [:tools, :tool_choice, :host_tools, :dynamic_tools, :allowed_tools]
-  @default_options_modules %{ASM => ASM.Options}
+  @tool_message_prefix "ASM adapter does not support inference tools or provider-native tool controls yet"
+
+  # Bound at RUNTIME by module name: this package declares no provider
+  # dependency, so ASM's feature manifest is consulted only when the consuming
+  # application actually installs ASM.
+  @asm_provider_features ASM.ProviderFeatures
+  @structured_output_feature :structured_output
 
   @impl true
   def provider_kind, do: :agent_session
@@ -21,10 +34,11 @@ defmodule Inference.Adapters.ASM do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
 
     with :ok <- Shared.ensure_dependency(module),
-         {target, opts} <- query_target_and_opts(client, request),
+         {:ok, opts} <- query_opts(client, request),
+         {target, opts} <- query_target(client, request, opts),
          :ok <- validate_target(target),
-         :ok <- validate_common_opts(client, module, opts),
-         {:ok, result} <- call_query(module, target, prompt(request), opts) do
+         {:ok, result} <- call_query(module, target, prompt(request), opts),
+         {:ok, result} <- reject_tool_calls(result) do
       {:ok,
        Shared.response_from_result(result, client, request, metadata: metadata(result, client))}
     else
@@ -37,8 +51,8 @@ defmodule Inference.Adapters.ASM do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
 
     with :ok <- Shared.ensure_dependency(module),
-         {:ok, session, opts, ownership} <- stream_session(module, client, request),
-         :ok <- validate_common_opts(client, module, opts),
+         {:ok, opts} <- stream_opts(client, request),
+         {:ok, session, opts, ownership} <- stream_session(module, client, request, opts),
          {:ok, raw_stream} <- call_stream(module, session, prompt(request), opts) do
       {:ok,
        raw_stream
@@ -47,6 +61,19 @@ defmodule Inference.Adapters.ASM do
     else
       {:error, reason} -> {:error, Shared.normalize_error(reason, adapter: __MODULE__)}
     end
+  end
+
+  @impl true
+  def capabilities(%Client{} = client) do
+    [
+      Capability.new(:response_format_text, :supported),
+      Capability.new(:response_format_json_object, :unsupported, %{
+        message: "ASM structured output is schema-driven; there is no schemaless JSON mode"
+      }),
+      structured_output_capability(client),
+      Capability.new(:tools, :unsupported, %{profile: :completion_only}),
+      Capability.new(:streaming, :supported)
+    ]
   end
 
   defp validate_target(nil),
@@ -63,9 +90,7 @@ defmodule Inference.Adapters.ASM do
     end
   end
 
-  defp query_target_and_opts(%Client{} = client, %Request{} = request) do
-    opts = query_opts(client, request)
-
+  defp query_target(%Client{} = client, %Request{} = request, opts) do
     case request.session || Keyword.get(client.adapter_opts, :session) do
       session when is_pid(session) ->
         {session, opts}
@@ -86,9 +111,7 @@ defmodule Inference.Adapters.ASM do
     end
   end
 
-  defp stream_session(module, %Client{} = client, %Request{} = request) do
-    opts = stream_opts(client, request)
-
+  defp stream_session(module, %Client{} = client, %Request{} = request, opts) do
     case request.session || Keyword.get(client.adapter_opts, :session) do
       session when is_pid(session) ->
         {:ok, session, opts, :external}
@@ -134,95 +157,108 @@ defmodule Inference.Adapters.ASM do
   defp maybe_close_after_stream(stream, _module, _session, :external), do: stream
 
   defp query_opts(%Client{} = client, %Request{} = request) do
-    client
-    |> common_opts(request)
-    |> Keyword.merge(Keyword.get(client.adapter_opts, :query_opts, []))
+    build_opts(client, request, Keyword.get(client.adapter_opts, :query_opts, []))
   end
 
   defp stream_opts(%Client{} = client, %Request{} = request) do
-    client
-    |> common_opts(request)
-    |> Keyword.merge(Keyword.get(client.adapter_opts, :stream_opts, []))
+    build_opts(client, request, Keyword.get(client.adapter_opts, :stream_opts, []))
   end
 
-  defp common_opts(%Client{} = client, %Request{} = request) do
-    client
-    |> Shared.request_opts(request)
-    |> Keyword.drop([:temperature, :top_p, :max_tokens, :response_format, :prompt])
-    |> rename_timeout()
-  end
+  defp build_opts(%Client{} = client, %Request{} = request, adapter_opts) do
+    opts =
+      client
+      |> Shared.request_opts(request)
+      |> Keyword.drop([:temperature, :top_p, :max_tokens, :prompt])
+      |> rename_timeout()
+      |> Keyword.merge(adapter_opts)
 
-  defp validate_common_opts(%Client{} = client, module, opts) when is_list(opts) do
-    case reject_unadmitted_tool_opts(opts) do
-      :ok -> strict_asm_preflight(client, module, opts)
-      {:error, %Error{} = error} -> {:error, error}
+    with :ok <-
+           Shared.reject_tool_options(opts, @unadmitted_tool_keys,
+             adapter: __MODULE__,
+             message_prefix: @tool_message_prefix
+           ),
+         {:ok, format_opts} <- response_format_opts(request) do
+      {:ok,
+       opts
+       |> Keyword.merge(format_opts)
+       |> Keyword.put(:completion_only, true)}
     end
   end
 
-  defp reject_unadmitted_tool_opts(opts) when is_list(opts) do
-    case Enum.find(@unadmitted_tool_keys, &Keyword.has_key?(opts, &1)) do
-      nil ->
-        :ok
+  # ASM's structured output is schema-driven: the schema rides the provider's
+  # own `:output_schema` option (inline JSON for Claude, a materialized file for
+  # Codex). Anything ASM cannot express is refused, never dropped.
+  defp response_format_opts(%Request{response_format: nil}), do: {:ok, []}
+  defp response_format_opts(%Request{response_format: :text}), do: {:ok, []}
 
-      key ->
-        {:error,
-         Error.unsupported_capability(:asm_tools,
-           message:
-             "ASM adapter does not support inference tools or provider-native tool controls yet; rejected #{inspect(key)}",
-           key: key
-         )}
+  defp response_format_opts(%Request{response_format: {:json_schema, %{schema: schema}}})
+       when is_map(schema),
+       do: {:ok, [output_schema: schema]}
+
+  defp response_format_opts(%Request{response_format: {:json_schema, _spec} = response_format}) do
+    {:error,
+     Error.response_format_unsupported(response_format,
+       adapter: __MODULE__,
+       message: "ASM :output_schema takes a JSON Schema map"
+     )}
+  end
+
+  defp response_format_opts(%Request{response_format: response_format}) do
+    {:error,
+     Error.response_format_unsupported(response_format,
+       adapter: __MODULE__,
+       message: "ASM has no schemaless JSON mode; declare a {:json_schema, _} response format"
+     )}
+  end
+
+  defp reject_tool_calls(result) do
+    Shared.reject_tool_calls(result, List.wrap(Shared.extract_field(result, :tool_calls)),
+      adapter: __MODULE__
+    )
+  end
+
+  defp structured_output_capability(%Client{provider: provider} = client) do
+    case declared_structured_output(client, provider) do
+      {:ok, %{supported?: true} = manifest} ->
+        Capability.new(:response_format_json_schema, :supported, %{
+          provider: provider,
+          asm_option: :output_schema,
+          provider_feature: manifest
+        })
+
+      {:ok, manifest} ->
+        Capability.new(:response_format_json_schema, :unsupported, %{
+          provider: provider,
+          provider_feature: manifest
+        })
+
+      :undeclared ->
+        Capability.new(:response_format_json_schema, :unknown, %{
+          provider: provider,
+          message: "ASM declares no #{inspect(@structured_output_feature)} feature here"
+        })
     end
   end
 
-  defp strict_asm_preflight(%Client{provider: provider} = client, module, opts)
-       when is_atom(provider) and is_list(opts) do
-    with {:ok, options_module} <- asm_options_module(client, module),
-         :ok <- Shared.ensure_dependency(options_module) do
-      preflight_options(options_module, provider, opts)
+  defp declared_structured_output(%Client{} = client, provider)
+       when is_atom(provider) and not is_nil(provider) do
+    module =
+      Keyword.get(client.adapter_opts, :asm_provider_features_module, @asm_provider_features)
+
+    if is_atom(module) and Code.ensure_loaded?(module) and
+         function_exported?(module, :common_feature, 2) do
+      read_structured_output(module, provider)
     else
-      {:error, %Error{} = error} ->
-        {:error, error}
+      :undeclared
     end
   end
 
-  defp strict_asm_preflight(%Client{} = _client, _module, _opts), do: :ok
+  defp declared_structured_output(%Client{}, _provider), do: :undeclared
 
-  defp preflight_options(options_module, provider, opts) do
-    if function_exported?(options_module, :preflight, 3) do
-      options_module.preflight(provider, opts, mode: :strict_common)
-      |> case do
-        {:ok, _preflight} -> :ok
-        {:error, reason} -> {:error, reason}
-      end
-    else
-      {:error, Error.missing_dependency(options_module, function: :preflight)}
-    end
-  end
-
-  defp asm_options_module(%Client{} = client, module) do
-    case Keyword.fetch(client.adapter_opts, :asm_options_module) do
-      {:ok, options_module} when is_atom(options_module) ->
-        {:ok, options_module}
-
-      {:ok, options_module} ->
-        {:error,
-         Error.invalid(:asm_options_module, "ASM options module must be a module atom",
-           asm_options_module: options_module
-         )}
-
-      :error ->
-        case Map.fetch(@default_options_modules, module) do
-          {:ok, options_module} ->
-            {:ok, options_module}
-
-          :error ->
-            {:error,
-             Error.invalid(
-               :asm_options_module,
-               "ASM options module must be explicit for custom ASM modules",
-               asm_module: module
-             )}
-        end
+  defp read_structured_output(module, provider) do
+    case module.common_feature(provider, @structured_output_feature) do
+      {:ok, %{supported?: supported?} = manifest} when is_boolean(supported?) -> {:ok, manifest}
+      _other -> :undeclared
     end
   end
 

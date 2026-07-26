@@ -29,6 +29,7 @@ defmodule Inference.Adapters.ReqLLM do
     module = Keyword.get(client.adapter_opts, :req_llm_module, ReqLLM)
 
     with :ok <- Shared.ensure_dependency(module),
+         :ok <- validate_response_format(request),
          model_spec when not is_nil(model_spec) <- model_spec(client, request),
          :ok <- maybe_put_provider_key(module, client, api_key(client, request)),
          opts <- request_opts(client, request),
@@ -104,9 +105,25 @@ defmodule Inference.Adapters.ReqLLM do
     Keyword.get(options, :prompt) || Request.to_prompt(request)
   end
 
-  defp schema(%Request{response_format: nil, options: options}), do: Keyword.get(options, :schema)
-  defp schema(%Request{response_format: {:json_schema, schema}}), do: schema
-  defp schema(%Request{response_format: response_format}), do: response_format
+  # ReqLLM's structured path is schema-driven (`generate_object/4`), so only a
+  # declared `{:json_schema, _}` format maps; schemaless JSON mode is refused
+  # rather than silently downgraded to a text completion.
+  defp validate_response_format(%Request{response_format: response_format})
+       when response_format in [nil, :text],
+       do: :ok
+
+  defp validate_response_format(%Request{response_format: {:json_schema, _spec}}), do: :ok
+
+  defp validate_response_format(%Request{response_format: response_format}) do
+    {:error,
+     Error.response_format_unsupported(response_format,
+       adapter: __MODULE__,
+       message: "ReqLLM structured output requires a declared {:json_schema, _} response format"
+     )}
+  end
+
+  defp schema(%Request{response_format: {:json_schema, %{schema: schema}}}), do: schema
+  defp schema(%Request{options: options}), do: Keyword.get(options, :schema)
 
   defp unwrap_object(result, %Client{} = client, %Request{} = request) do
     if is_nil(schema(request)) do
