@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-07-25
+
 - Removed the outbound ASM strict-common preflight; ASM owns its own run-path
   option gate and the adapter no longer requires an `:asm_options_module`.
 - Made `Inference.Request.response_format` a closed, validated union

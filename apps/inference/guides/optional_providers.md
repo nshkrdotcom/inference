@@ -8,7 +8,7 @@ dependencies. It does not mean this repository publishes a package per adapter.
 No extra dependency is required:
 
 ```elixir
-{:inference, "~> 0.1.0"}
+{:inference, "~> 0.2.0"}
 ```
 
 ## GeminiEx
@@ -16,7 +16,7 @@ No extra dependency is required:
 Install the direct Gemini API SDK in the consuming app:
 
 ```elixir
-{:inference, "~> 0.1.0"},
+{:inference, "~> 0.2.0"},
 {:gemini_ex, "..."}
 ```
 
@@ -29,7 +29,7 @@ route for this adapter.
 Install Agent Session Manager in the consuming app:
 
 ```elixir
-{:inference, "~> 0.1.0"},
+{:inference, "~> 0.2.0"},
 {:agent_session_manager, "..."}
 ```
 
@@ -70,7 +70,7 @@ the same way `:asm_module` overrides the runtime module.
 Install ReqLlmNext where broad hosted-provider coverage is needed:
 
 ```elixir
-{:inference, "~> 0.1.0"},
+{:inference, "~> 0.2.0"},
 {:req_llm_next, "..."}
 ```
 
@@ -82,7 +82,7 @@ Use `Inference.Adapters.ReqLlmNext`.
 ReqLlmNext for new broad hosted-provider work.
 
 ```elixir
-{:inference, "~> 0.1.0"},
+{:inference, "~> 0.2.0"},
 {:req_llm, "~> 1.10"}
 ```
 
