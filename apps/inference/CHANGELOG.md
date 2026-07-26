@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.2.0 - 2026-07-25
+## 0.2.0 - 2026-07-27
 
 - Publish preflight now verifies the exact local sibling release on Hex, so an
   older package version cannot falsely satisfy release readiness. Nested
