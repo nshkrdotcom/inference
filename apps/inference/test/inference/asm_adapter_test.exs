@@ -81,7 +81,19 @@ defmodule Inference.Adapters.ASMTest do
   defmodule FakeProviderFeatures do
     @moduledoc false
 
-    def common_feature(:claude, :structured_output) do
+    @providers [:amp, :antigravity, :claude, :codex, :cursor]
+    @completion_supported [:claude, :codex]
+
+    def common_feature(provider, :completion_only) when provider in @providers do
+      {:ok,
+       %{
+         supported?: provider in @completion_supported,
+         activation: %{option: :completion_only, value: true}
+       }}
+    end
+
+    def common_feature(provider, :structured_output)
+        when provider in @completion_supported do
       {:ok,
        %{
          supported?: true,
@@ -90,7 +102,8 @@ defmodule Inference.Adapters.ASMTest do
        }}
     end
 
-    def common_feature(:antigravity, :structured_output), do: {:ok, %{supported?: false}}
+    def common_feature(provider, :structured_output) when provider in @providers,
+      do: {:ok, %{supported?: false}}
 
     def common_feature(provider, feature) do
       {:error,
@@ -219,6 +232,46 @@ defmodule Inference.Adapters.ASMTest do
       assert opts[:completion_only] == true
     end
 
+    test "known unsupported providers fail before query dispatch" do
+      for provider <- [:amp, :antigravity, :cursor] do
+        client =
+          client(
+            provider: provider,
+            adapter_opts: [asm_provider_features_module: FakeProviderFeatures]
+          )
+
+        assert {:error,
+                %Error{
+                  category: :unsupported_capability,
+                  reason: :unsupported_capability
+                } = error} = Inference.complete(client, "hello")
+
+        assert error.metadata.provider == provider
+        assert error.metadata.adapter == ASMAdapter
+        refute_received {:asm_query, _target, _prompt, _opts}
+      end
+    end
+
+    test "known unsupported providers fail before stream dispatch" do
+      for provider <- [:amp, :antigravity, :cursor] do
+        client =
+          client(
+            provider: provider,
+            adapter_opts: [asm_provider_features_module: FakeProviderFeatures]
+          )
+
+        assert {:error,
+                %Error{
+                  category: :unsupported_capability,
+                  reason: :unsupported_capability
+                } = error} = Inference.stream(client, "hello")
+
+        assert error.metadata.provider == provider
+        refute_received {:asm_start_session, _opts}
+        refute_received {:asm_stream, _opts}
+      end
+    end
+
     test "a returned tool call is a typed contract failure" do
       client =
         client(adapter_opts: [query_opts: [reply_tool_calls: [%{name: "lookup", id: "call-1"}]]])
@@ -304,17 +357,60 @@ defmodule Inference.Adapters.ASMTest do
                |> Capability.fetch!(:response_format_json_schema)
     end
 
+    test "all five ASM providers report total completion-dependent capabilities" do
+      for provider <- [:amp, :antigravity, :claude, :codex, :cursor] do
+        client =
+          client(
+            provider: provider,
+            adapter_opts: [asm_provider_features_module: FakeProviderFeatures]
+          )
+
+        capabilities = Inference.capabilities(client)
+        expected = if provider in [:claude, :codex], do: :supported, else: :unsupported
+
+        for capability <- [:completion_only, :response_format_text, :streaming] do
+          assert %Capability{support: ^expected, metadata: metadata} =
+                   Capability.fetch!(capabilities, capability)
+
+          assert metadata.provider == provider
+        end
+      end
+    end
+
+    test "all five ASM providers report total structured-output capabilities" do
+      for provider <- [:amp, :antigravity, :claude, :codex, :cursor] do
+        client =
+          client(
+            provider: provider,
+            adapter_opts: [asm_provider_features_module: FakeProviderFeatures]
+          )
+
+        expected = if provider in [:claude, :codex], do: :supported, else: :unsupported
+
+        assert %Capability{support: ^expected} =
+                 client
+                 |> Inference.capabilities()
+                 |> Capability.fetch!(:response_format_json_schema)
+      end
+    end
+
     test "a provider without a declared feature is unknown, never assumed supported" do
       client =
         client(
-          provider: :cursor,
+          provider: :unknown_provider,
           adapter_opts: [asm_provider_features_module: FakeProviderFeatures]
         )
 
       capabilities = Inference.capabilities(client)
 
-      assert %Capability{support: :unknown} =
-               Capability.fetch!(capabilities, :response_format_json_schema)
+      for capability <- [
+            :completion_only,
+            :response_format_text,
+            :response_format_json_schema,
+            :streaming
+          ] do
+        assert %Capability{support: :unknown} = Capability.fetch!(capabilities, capability)
+      end
 
       refute Capability.supported?(capabilities, :response_format_json_schema)
     end
@@ -322,16 +418,20 @@ defmodule Inference.Adapters.ASMTest do
     test "an absent ASM feature module is unknown, never assumed supported" do
       capabilities = Inference.capabilities(client(provider: :claude))
 
-      assert %Capability{support: :unknown} =
-               Capability.fetch!(capabilities, :response_format_json_schema)
+      for capability <- [
+            :completion_only,
+            :response_format_text,
+            :response_format_json_schema,
+            :streaming
+          ] do
+        assert %Capability{support: :unknown} = Capability.fetch!(capabilities, capability)
+      end
     end
 
     test "the completion-only profile is reported as an unsupported tool capability" do
       capabilities = Inference.capabilities(client())
 
       assert %Capability{support: :unsupported} = Capability.fetch!(capabilities, :tools)
-      assert Capability.supported?(capabilities, :streaming)
-      assert Capability.supported?(capabilities, :response_format_text)
       refute Capability.supported?(capabilities, :response_format_json_object)
     end
   end

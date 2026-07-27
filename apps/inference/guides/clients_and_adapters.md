@@ -85,7 +85,11 @@ The compatibility adapters currently use this for migration support:
   list itself, so the adapter forwards provider-native options rather than
   pre-judging them; it still rejects tool keys such as `:tools`, `:tool_choice`,
   `:host_tools`, and `:dynamic_tools` until ASM exposes a proven all-provider
-  tool contract, and it locks `completion_only: true` on every call.
+  tool contract, and it locks `completion_only: true` on every call. Before
+  query or stream dispatch, it consults ASM's provider feature catalog. Claude
+  and Codex currently prove completion-only inference; Amp, Antigravity, and
+  Cursor remain recognized agent-session providers but are refused by this
+  semantic adapter.
   Gemini CLI is retired. Antigravity is the current Google coding-agent SDK;
   `GeminiEx` remains the distinct direct Gemini API adapter.
 

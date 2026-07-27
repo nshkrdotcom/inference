@@ -72,5 +72,7 @@ defmodule InferenceTestkitTest do
     for adapter <- [ASM, GeminiEx, GeminiExManaged] do
       AdapterCase.assert_capability_contract(adapter, require: required)
     end
+
+    AdapterCase.assert_capability_contract(ASM, require: [:completion_only])
   end
 end

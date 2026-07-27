@@ -1,8 +1,8 @@
-# Inference
-
 <p align="center">
   <img src="apps/inference/assets/inference.svg" alt="Inference" width="200" />
 </p>
+
+# Inference
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT">

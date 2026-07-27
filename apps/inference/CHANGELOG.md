@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-07-27
+
+- Made the ASM adapter's completion, text, streaming, and structured-output
+  capability claims derive from ASM's total common-feature manifest instead of
+  assuming every recognized provider can satisfy inference semantics.
+- Kept Claude and Codex enabled for completion-only ASM inference, while Amp,
+  Antigravity, and Cursor now return a typed `:unsupported_capability` before
+  query or stream dispatch.
+- Covered all five ASM SDK providers in the capability and refusal matrix
+  without adding provider SDK dependencies to the semantic inference package.
+- Updated the shared dependency-source helper to the five-provider release DAG
+  and prepared the `0.3.0` package, migration guide, and release metadata.
+
 ## 0.2.0 - 2026-07-27
 
 - Publish preflight now verifies the exact local sibling release on Hex, so an

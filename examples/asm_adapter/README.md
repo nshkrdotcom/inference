@@ -4,6 +4,10 @@ These examples belong to the `inference` repo because they exercise
 `Inference.Adapters.ASM`. ASM links here but does not import or test these
 examples.
 
+Use Claude or Codex for successful completion-only calls. Amp, Antigravity, and
+Cursor are valid ASM agent-session providers, but the Inference adapter refuses
+them until their SDK feature manifests prove the completion-only contract.
+
 ## Examples
 
 - `text_only.exs`: text-only inference through ASM strict common options.

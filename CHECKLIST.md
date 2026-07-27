@@ -62,6 +62,17 @@ Scope: work only in this repository. The real package is
 - [x] `examples/live_req_llm.exs`
 - [x] `examples/live_reqllm_next.exs`
 
+## Phase 6 - Five-SDK ASM Conformance
+
+- [x] Read ASM's total feature manifest at runtime.
+- [x] Report completion-only, text, streaming, and structured-output support
+      for Claude, Codex, Amp, Antigravity, and Cursor.
+- [x] Keep Claude and Codex enabled for completion-only inference.
+- [x] Refuse Amp, Antigravity, and Cursor before query or stream dispatch.
+- [x] Preserve the no-provider-SDK dependency boundary.
+- [x] Update the dependency-source helper to the five-provider release DAG.
+- [x] Prepare the `0.3.0` release metadata and migration guide.
+
 ## Future Roadmap Outside This Repo
 
 - [ ] Trinity consumes `:inference`.

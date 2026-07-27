@@ -1,8 +1,8 @@
-# Inference
-
 <p align="center">
   <img src="assets/inference.svg" alt="Inference" width="200" />
 </p>
+
+# Inference
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT">
@@ -33,7 +33,7 @@ Add `:inference` to the application that wants the shared contract:
 ```elixir
 def deps do
   [
-    {:inference, "~> 0.2.0"}
+    {:inference, "~> 0.3.0"}
   ]
 end
 ```
@@ -43,7 +43,7 @@ Provider-specific dependencies are opt-in. For example:
 ```elixir
 def deps do
   [
-    {:inference, "~> 0.2.0"},
+    {:inference, "~> 0.3.0"},
     {:gemini_ex, "..."},
     {:agent_session_manager, "..."}
   ]
@@ -128,7 +128,10 @@ Requests can also be built explicitly:
   ASM's strict-common preflight from the outside; it maps
   `{:json_schema, _}` onto ASM's `:output_schema`, locks the completion-only
   provider profile, and rejects provider-native tool/configuration keys until
-  ASM has a proven all-provider tool contract.
+  ASM has a proven all-provider tool contract. Its capability claims come from
+  ASM's total common-feature manifest: Claude and Codex currently support the
+  completion-only contract; Amp, Antigravity, and Cursor are recognized but
+  refused with a typed unsupported-capability error before dispatch.
 - Provider errors keep their cause: `ASM.Error` kinds and `Gemini.Error`
   http statuses map onto the declared `:timeout`, `:rate_limited`,
   `:missing_credentials`, `:missing_dependency`, `:invalid`, and
@@ -155,3 +158,4 @@ Requests can also be built explicitly:
 - [Adapter Testkit](adapter-testkit.html)
 - [Live Examples](live-examples.html)
 - [Jido Integration Ownership](jido-integration.html)
+- [Migrating to 0.3](migrating-to-0-3.html)

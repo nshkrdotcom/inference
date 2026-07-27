@@ -8,7 +8,7 @@ end
 defmodule Inference.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.3.0"
   @source_url "https://github.com/nshkrdotcom/inference"
   @homepage_url "https://hex.pm/packages/inference"
   @docs_url "https://hexdocs.pm/inference"
@@ -107,6 +107,7 @@ defmodule Inference.MixProject do
         {"guides/live_examples.md", [filename: "live-examples", title: "Live Examples"]},
         {"guides/jido_integration.md",
          [filename: "jido-integration", title: "Jido Integration Ownership"]},
+        {"guides/migrating-to-0.3.md", [filename: "migrating-to-0-3", title: "Migrating To 0.3"]},
         "CHANGELOG.md",
         "LICENSE"
       ],
@@ -119,7 +120,8 @@ defmodule Inference.MixProject do
           "guides/optional_providers.md",
           "guides/adapter_testkit.md",
           "guides/live_examples.md",
-          "guides/jido_integration.md"
+          "guides/jido_integration.md",
+          "guides/migrating-to-0.3.md"
         ],
         Project: ["CHANGELOG.md", "LICENSE"]
       ],

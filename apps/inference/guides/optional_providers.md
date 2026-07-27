@@ -8,7 +8,7 @@ dependencies. It does not mean this repository publishes a package per adapter.
 No extra dependency is required:
 
 ```elixir
-{:inference, "~> 0.2.0"}
+{:inference, "~> 0.3.0"}
 ```
 
 ## GeminiEx
@@ -16,7 +16,7 @@ No extra dependency is required:
 Install the direct Gemini API SDK in the consuming app:
 
 ```elixir
-{:inference, "~> 0.2.0"},
+{:inference, "~> 0.3.0"},
 {:gemini_ex, "..."}
 ```
 
@@ -29,8 +29,8 @@ route for this adapter.
 Install Agent Session Manager in the consuming app:
 
 ```elixir
-{:inference, "~> 0.2.0"},
-{:agent_session_manager, "..."}
+{:inference, "~> 0.3.0"},
+{:agent_session_manager, "~> 0.12.0"}
 ```
 
 Use `Inference.Adapters.ASM` with a provider atom or session reference.
@@ -52,25 +52,41 @@ ASM's strict-common preflight from the outside; it maps the neutral request onto
 ASM options, locks `completion_only: true`, and rejects tool-bearing requests
 until ASM has a documented all-provider host-tool contract.
 
+ASM recognizes five coding-agent providers. Inference admits only providers
+whose SDK feature manifest proves `completion_only: true`:
+
+| ASM provider | SDK | Completion-only inference | JSON Schema |
+|---|---|---:|---:|
+| Claude | `claude_agent_sdk` | supported | supported |
+| Codex | `codex_sdk` | supported | supported |
+| Amp | `amp_sdk` | unsupported | unsupported |
+| Antigravity | `antigravity_cli_sdk` | unsupported | unsupported |
+| Cursor | `cursor_cli_sdk` | unsupported | unsupported |
+
+Amp, Antigravity, and Cursor remain valid ASM providers for agent-session work,
+but Inference refuses them before query or stream dispatch. This is deliberate:
+the semantic adapter never relaxes its completion-only profile to make a
+provider appear compatible.
+
 A `{:json_schema, %{schema: schema}}` response format becomes ASM's
 `:output_schema` option (inline JSON for Claude, a materialized schema file for
 Codex). Schemaless `{:json, :object}` mode is refused, because ASM structured
 output is schema-driven.
 
-`Inference.capabilities/1` answers whether the bound provider does JSON Schema.
-The claim is read at runtime from ASM's own feature manifest
-(`ASM.ProviderFeatures.common_feature(provider, :structured_output)`); a
-provider that declares no such feature — or an application that has not
-installed ASM at all — reports `:unknown` rather than assumed support. Tests can
-inject a stand-in through the `:asm_provider_features_module` adapter option,
-the same way `:asm_module` overrides the runtime module.
+`Inference.capabilities/1` answers both the completion-only and JSON Schema
+questions. The claims are read at runtime from ASM's own feature manifest using
+`ASM.ProviderFeatures.common_feature/2`. A provider that declares no feature —
+or an application that has not installed ASM at all — reports `:unknown`
+rather than assumed support. Tests can inject a stand-in through the
+`:asm_provider_features_module` adapter option, the same way `:asm_module`
+overrides the runtime module.
 
 ## ReqLlmNext
 
 Install ReqLlmNext where broad hosted-provider coverage is needed:
 
 ```elixir
-{:inference, "~> 0.2.0"},
+{:inference, "~> 0.3.0"},
 {:req_llm_next, "..."}
 ```
 
@@ -82,7 +98,7 @@ Use `Inference.Adapters.ReqLlmNext`.
 ReqLlmNext for new broad hosted-provider work.
 
 ```elixir
-{:inference, "~> 0.2.0"},
+{:inference, "~> 0.3.0"},
 {:req_llm, "~> 1.10"}
 ```
 

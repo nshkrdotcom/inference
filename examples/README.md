@@ -46,7 +46,9 @@ Requires the local `agent_session_manager` repository. Provider/session details
 are passed through to ASM.
 
 The ASM adapter is common-only. Provider-native tool controls are rejected until
-ASM has a proven all-provider host-tool contract.
+ASM has a proven all-provider host-tool contract. Successful completion-only
+examples use Claude or Codex; Amp, Antigravity, and Cursor are recognized ASM
+providers but are deliberately refused by this semantic adapter.
 
 ```bash
 elixir examples/asm_adapter/text_only.exs \

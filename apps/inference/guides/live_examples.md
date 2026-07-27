@@ -21,6 +21,11 @@ elixir examples/live_gemini_ex.exs
 
 ## Agent Session Manager
 
+The completion-only examples use Claude or Codex. Amp, Antigravity, and Cursor
+are recognized ASM providers, but Inference intentionally returns a typed
+unsupported-capability error for them until their SDK feature manifests prove
+completion-only execution.
+
 ```bash
 elixir examples/asm_adapter/text_only.exs \
   --provider codex \

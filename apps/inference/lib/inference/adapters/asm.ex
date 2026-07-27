@@ -9,6 +9,12 @@ defmodule Inference.Adapters.ASM do
   outside; it maps the provider-neutral request onto ASM options, locks the
   completion-only provider profile, and refuses tools it cannot honor.
 
+  The adapter reads ASM's total common-feature manifest at runtime. Claude and
+  Codex currently prove the completion-only contract. Amp, Antigravity, and
+  Cursor remain recognized ASM providers, but this adapter refuses them before
+  dispatch because their SDK contracts do not currently prove completion-only
+  execution.
+
   `{:json_schema, _}` response formats map onto ASM's `:output_schema` option.
   """
 
@@ -25,6 +31,7 @@ defmodule Inference.Adapters.ASM do
   # application actually installs ASM.
   @asm_provider_features ASM.ProviderFeatures
   @structured_output_feature :structured_output
+  @completion_only_feature :completion_only
 
   @impl true
   def provider_kind, do: :agent_session
@@ -34,6 +41,7 @@ defmodule Inference.Adapters.ASM do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
 
     with :ok <- Shared.ensure_dependency(module),
+         :ok <- ensure_completion_only_supported(client),
          {:ok, opts} <- query_opts(client, request),
          {target, opts} <- query_target(client, request, opts),
          :ok <- validate_target(target),
@@ -51,6 +59,7 @@ defmodule Inference.Adapters.ASM do
     module = Keyword.get(client.adapter_opts, :asm_module, ASM)
 
     with :ok <- Shared.ensure_dependency(module),
+         :ok <- ensure_completion_only_supported(client),
          {:ok, opts} <- stream_opts(client, request),
          {:ok, session, opts, ownership} <- stream_session(module, client, request, opts),
          {:ok, raw_stream} <- call_stream(module, session, prompt(request), opts) do
@@ -66,13 +75,14 @@ defmodule Inference.Adapters.ASM do
   @impl true
   def capabilities(%Client{} = client) do
     [
-      Capability.new(:response_format_text, :supported),
+      completion_only_capability(client),
+      completion_dependent_capability(client, :response_format_text),
       Capability.new(:response_format_json_object, :unsupported, %{
         message: "ASM structured output is schema-driven; there is no schemaless JSON mode"
       }),
       structured_output_capability(client),
       Capability.new(:tools, :unsupported, %{profile: :completion_only}),
-      Capability.new(:streaming, :supported)
+      completion_dependent_capability(client, :streaming)
     ]
   end
 
@@ -217,50 +227,127 @@ defmodule Inference.Adapters.ASM do
     )
   end
 
-  defp structured_output_capability(%Client{provider: provider} = client) do
-    case declared_structured_output(client, provider) do
+  defp completion_only_capability(%Client{provider: provider} = client) do
+    case declared_feature(client, provider, @completion_only_feature) do
       {:ok, %{supported?: true} = manifest} ->
-        Capability.new(:response_format_json_schema, :supported, %{
+        Capability.new(:completion_only, :supported, %{
           provider: provider,
-          asm_option: :output_schema,
+          asm_option: :completion_only,
           provider_feature: manifest
         })
 
       {:ok, manifest} ->
-        Capability.new(:response_format_json_schema, :unsupported, %{
+        Capability.new(:completion_only, :unsupported, %{
           provider: provider,
           provider_feature: manifest
         })
 
       :undeclared ->
-        Capability.new(:response_format_json_schema, :unknown, %{
+        Capability.new(:completion_only, :unknown, %{
           provider: provider,
-          message: "ASM declares no #{inspect(@structured_output_feature)} feature here"
+          message: "ASM declares no #{inspect(@completion_only_feature)} feature here"
         })
     end
   end
 
-  defp declared_structured_output(%Client{} = client, provider)
+  defp completion_dependent_capability(%Client{} = client, name) when is_atom(name) do
+    %Capability{support: support, metadata: metadata} = completion_only_capability(client)
+
+    Capability.new(
+      name,
+      support,
+      Map.put(metadata, :requires, :completion_only)
+    )
+  end
+
+  defp structured_output_capability(%Client{provider: provider} = client) do
+    completion = declared_feature(client, provider, @completion_only_feature)
+    structured = declared_feature(client, provider, @structured_output_feature)
+
+    metadata = %{
+      provider: provider,
+      completion_only_feature: feature_manifest_or_nil(completion),
+      provider_feature: feature_manifest_or_nil(structured)
+    }
+
+    case {feature_support(completion), feature_support(structured)} do
+      {:supported, :supported} ->
+        Capability.new(
+          :response_format_json_schema,
+          :supported,
+          Map.put(metadata, :asm_option, :output_schema)
+        )
+
+      {:unsupported, _other} ->
+        Capability.new(:response_format_json_schema, :unsupported, metadata)
+
+      {_other, :unsupported} ->
+        Capability.new(:response_format_json_schema, :unsupported, metadata)
+
+      {_completion, _structured} ->
+        Capability.new(
+          :response_format_json_schema,
+          :unknown,
+          Map.put(
+            metadata,
+            :message,
+            "ASM completion-only or structured-output support is undeclared here"
+          )
+        )
+    end
+  end
+
+  defp ensure_completion_only_supported(%Client{provider: provider} = client) do
+    case declared_feature(client, provider, @completion_only_feature) do
+      {:ok, %{supported?: true}} ->
+        :ok
+
+      {:ok, manifest} ->
+        {:error,
+         Error.unsupported_capability(:completion_only,
+           adapter: __MODULE__,
+           provider: provider,
+           provider_feature: manifest,
+           message:
+             "ASM provider #{inspect(provider)} cannot satisfy the Inference completion-only contract"
+         )}
+
+      # Older ASM releases and explicit test doubles may not expose a feature
+      # catalog. Keep forwarding `completion_only: true`; ASM remains the final
+      # run-path gate and cannot silently unlock the profile.
+      :undeclared ->
+        :ok
+    end
+  end
+
+  defp declared_feature(%Client{} = client, provider, feature)
        when is_atom(provider) and not is_nil(provider) do
     module =
       Keyword.get(client.adapter_opts, :asm_provider_features_module, @asm_provider_features)
 
     if is_atom(module) and Code.ensure_loaded?(module) and
          function_exported?(module, :common_feature, 2) do
-      read_structured_output(module, provider)
+      read_feature(module, provider, feature)
     else
       :undeclared
     end
   end
 
-  defp declared_structured_output(%Client{}, _provider), do: :undeclared
+  defp declared_feature(%Client{}, _provider, _feature), do: :undeclared
 
-  defp read_structured_output(module, provider) do
-    case module.common_feature(provider, @structured_output_feature) do
+  defp read_feature(module, provider, feature) do
+    case module.common_feature(provider, feature) do
       {:ok, %{supported?: supported?} = manifest} when is_boolean(supported?) -> {:ok, manifest}
       _other -> :undeclared
     end
   end
+
+  defp feature_manifest_or_nil({:ok, manifest}), do: manifest
+  defp feature_manifest_or_nil(:undeclared), do: nil
+
+  defp feature_support({:ok, %{supported?: true}}), do: :supported
+  defp feature_support({:ok, %{supported?: false}}), do: :unsupported
+  defp feature_support(:undeclared), do: :unknown
 
   defp rename_timeout(opts) do
     case Keyword.pop(opts, :timeout) do
