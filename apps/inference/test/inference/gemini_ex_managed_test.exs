@@ -70,30 +70,15 @@ defmodule Gemini do
     end
   end
 
-  def start_stream(prompt, opts) do
+  def start_stream(prompt, opts, target) do
     with :ok <- validate_stream_opts(prompt, opts) do
       stream_id = "stream-#{System.unique_integer([:positive])}"
-
-      Process.put(
-        {:managed_gemini_stream_mode, stream_id},
-        Process.get(:managed_gemini_test_mode)
-      )
+      mode = Process.get(:managed_gemini_test_mode)
+      sender = spawn(fn -> emit_stream(mode, target, stream_id) end)
+      Process.put({:managed_gemini_stream_sender, stream_id}, sender)
 
       {:ok, stream_id}
     end
-  end
-
-  def subscribe_stream(stream_id) do
-    target = self()
-    mode = Process.get({:managed_gemini_stream_mode, stream_id})
-
-    sender =
-      spawn(fn ->
-        emit_stream(mode, target, stream_id)
-      end)
-
-    Process.put({:managed_gemini_stream_sender, stream_id}, sender)
-    :ok
   end
 
   def stop_stream(stream_id) do

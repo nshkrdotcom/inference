@@ -445,8 +445,7 @@ defmodule Inference.Adapters.GeminiExManaged do
   defp normalize_model(model), do: model
 
   defp ensure_stream_provider do
-    with :ok <- ensure_provider_function(:start_stream, 2),
-         :ok <- ensure_provider_function(:subscribe_stream, 1) do
+    with :ok <- ensure_provider_function(:start_stream, 3) do
       ensure_provider_function(:stop_stream, 1)
     end
   end
@@ -545,16 +544,9 @@ defmodule Inference.Adapters.GeminiExManaged do
   defp stream_next(%{status: :done} = state), do: {:halt, state}
 
   defp stream_next(%{status: :starting} = state) do
-    case provider_call(:start_stream, [state.prompt, state.provider_opts]) do
+    case provider_call(:start_stream, [state.prompt, state.provider_opts, self()]) do
       {:ok, stream_id} when is_binary(stream_id) and stream_id != "" ->
-        case provider_call(:subscribe_stream, [stream_id]) do
-          :ok ->
-            stream_next(%{state | status: :active, stream_id: stream_id})
-
-          {:error, reason} ->
-            _ = provider_call(:stop_stream, [stream_id])
-            {[error_event(reason, state.refs)], %{state | status: :done, stream_id: stream_id}}
-        end
+        stream_next(%{state | status: :active, stream_id: stream_id})
 
       {:error, reason} ->
         {[error_event(reason, state.refs)], %{state | status: :done}}
@@ -698,6 +690,12 @@ defmodule Inference.Adapters.GeminiExManaged do
   end
 
   defp safe_reason(%Error{reason: reason}), do: reason
+  defp safe_reason(%{type: :http_error}), do: :gemini_http_error
+  defp safe_reason(%{type: :network_error}), do: :gemini_network_error
+  defp safe_reason(%{type: :serialization_error}), do: :gemini_serialization_error
+  defp safe_reason(%{type: :validation_error}), do: :gemini_validation_error
+  defp safe_reason(%{type: :auth_error}), do: :gemini_auth_error
+  defp safe_reason(%{type: :config_error}), do: :gemini_config_error
   defp safe_reason(reason) when is_atom(reason), do: reason
   defp safe_reason({reason, _details}) when is_atom(reason), do: reason
   defp safe_reason(_reason), do: :gemini_provider_error
