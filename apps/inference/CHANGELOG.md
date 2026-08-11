@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-08-11
+
+- Made managed Gemini stream startup and subscription atomic through
+  `start_stream/3`, eliminating the event-delivery race in the previous split
+  start/subscribe protocol.
+- Mapped known Gemini provider errors onto stable, non-sensitive inference
+  error reasons.
+- Refreshed release metadata and provider-neutral installation guidance while
+  preserving the package's zero provider-SDK dependency boundary.
+- Fixed the packaged Mix project so it loads repository-only dependency-source
+  tooling conditionally; the Hex archive now loads correctly without
+  `build_support`.
+
 ## 0.3.0 - 2026-07-27
 
 - Made the ASM adapter's completion, text, streaming, and structured-output

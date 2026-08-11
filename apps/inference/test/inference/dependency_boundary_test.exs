@@ -59,7 +59,7 @@ defmodule Inference.DependencyBoundaryTest do
     refute asm_examples =~ ~s("gemini" => :gemini)
   end
 
-  test "0.3.0 release metadata and root invocation are complete" do
+  test "0.4.0 release metadata and root invocation are complete" do
     project = Mix.Project.config()
     package = project[:package]
     root_mix = File.read!(Path.join(@repo_root, "mix.exs"))
@@ -67,7 +67,7 @@ defmodule Inference.DependencyBoundaryTest do
     license = File.read!(Path.join(@repo_root, "apps/inference/LICENSE"))
 
     assert project[:app] == :inference
-    assert project[:version] == "0.3.0"
+    assert project[:version] == "0.4.0"
     assert project[:elixir] == "~> 1.18"
     assert package[:name] == :inference
     assert package[:licenses] == ["MIT"]
@@ -85,11 +85,20 @@ defmodule Inference.DependencyBoundaryTest do
 
     assert "lib" in package[:files]
     assert "LICENSE" in package[:files]
+    refute "build_support" in package[:files]
     assert project[:docs][:assets] == %{"assets" => "assets"}
     assert project[:docs][:homepage_url] == "https://hexdocs.pm/inference"
-    assert changelog =~ "## 0.3.0 - 2026-07-27"
+    assert changelog =~ "## 0.4.0 - 2026-08-11"
     assert license =~ "MIT License"
     assert root_mix =~ ~s({:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false})
+    assert app_mix_loads_workspace_helper_conditionally?()
+  end
+
+  defp app_mix_loads_workspace_helper_conditionally? do
+    source = File.read!(Path.join(@repo_root, "apps/inference/mix.exs"))
+
+    source =~ "File.regular?(workspace_helper)" and
+      source =~ "Code.require_file(workspace_helper)"
   end
 
   defp assert_forbidden_deps_absent(deps, forbidden_deps) when is_list(deps) do

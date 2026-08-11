@@ -1,14 +1,16 @@
-# The workspace root vendors the shared dependency-source helper. Load it here
-# too, so `mix deps.sources`, `mix deps.publish_preflight`, and this package's
-# own gate all see it when they run from the package directory.
-unless Code.ensure_loaded?(DependencySources) do
-  Code.require_file("../../build_support/dependency_sources.exs", __DIR__)
+# The workspace root vendors the shared dependency-source helper. It is
+# deliberately absent from the Hex archive, so load it only in a source
+# checkout.
+workspace_helper = Path.expand("../../build_support/dependency_sources.exs", __DIR__)
+
+if File.regular?(workspace_helper) and not Code.ensure_loaded?(DependencySources) do
+  Code.require_file(workspace_helper)
 end
 
 defmodule Inference.MixProject do
   use Mix.Project
 
-  @version "0.3.0"
+  @version "0.4.0"
   @source_url "https://github.com/nshkrdotcom/inference"
   @homepage_url "https://hex.pm/packages/inference"
   @docs_url "https://hexdocs.pm/inference"
@@ -108,6 +110,7 @@ defmodule Inference.MixProject do
         {"guides/jido_integration.md",
          [filename: "jido-integration", title: "Jido Integration Ownership"]},
         {"guides/migrating-to-0.3.md", [filename: "migrating-to-0-3", title: "Migrating To 0.3"]},
+        {"guides/migrating-to-0.4.md", [filename: "migrating-to-0-4", title: "Migrating To 0.4"]},
         "CHANGELOG.md",
         "LICENSE"
       ],
@@ -121,6 +124,7 @@ defmodule Inference.MixProject do
           "guides/adapter_testkit.md",
           "guides/live_examples.md",
           "guides/jido_integration.md",
+          "guides/migrating-to-0.4.md",
           "guides/migrating-to-0.3.md"
         ],
         Project: ["CHANGELOG.md", "LICENSE"]
