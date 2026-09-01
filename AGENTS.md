@@ -38,11 +38,10 @@ package gate and then run `mix ci` in `/home/home/p/g/n/jido_integration`.
 
 ## Dependency Sources And Runtime Env
 
-- Dependency source selection is handled by
-  `build_support/dependency_sources.exs` plus
-  `build_support/dependency_sources.config.exs`.
-- Use `.dependency_sources.local.exs` for local overrides; it is gitignored and
-  must not be committed.
+- This repository declares no switchable cross-repository dependency and therefore needs
+  no MWO carrier seam. If one is added later, use MWO's documented tuple-first
+  `workspace_dep(committed_tuple)` seam and XDG operator source preferences; do not
+  install a repository-local dependency-source helper.
 - Dependency source selection must not read OS environment variables.
 - This repo is not in the discovered Weld consumer set. Do not add a Weld
   dependency during this Phase 2 cleanup pass.

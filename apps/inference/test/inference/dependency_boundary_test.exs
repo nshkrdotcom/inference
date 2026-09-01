@@ -20,15 +20,14 @@ defmodule Inference.DependencyBoundaryTest do
     assert_forbidden_deps_absent(Mix.Project.config()[:deps], @forbidden_deps)
   end
 
-  test "repo has dependency-source bootstrap without Weld adoption" do
-    assert File.regular?(Path.join(@repo_root, "build_support/dependency_sources.exs"))
-    assert File.regular?(Path.join(@repo_root, "build_support/dependency_sources.config.exs"))
-    assert File.read!(Path.join(@repo_root, ".gitignore")) =~ ".dependency_sources.local.exs"
-
+  test "zero-dependency repo has no source-selection carrier or Weld adoption" do
     root_mix = File.read!(Path.join(@repo_root, "mix.exs"))
     app_mix = File.read!(Path.join(@repo_root, "apps/inference/mix.exs"))
 
-    assert root_mix =~ "build_support/dependency_sources.exs"
+    refute File.exists?(Path.join(@repo_root, "build_support/dependency_sources.exs"))
+    refute File.exists?(Path.join(@repo_root, "build_support/dependency_sources.config.exs"))
+    refute String.contains?(root_mix <> app_mix, "DependencySources")
+    refute String.contains?(root_mix <> app_mix, "MixWorkspaceOpsBootstrap")
     refute String.contains?(root_mix <> app_mix, "{:weld")
   end
 
@@ -91,14 +90,6 @@ defmodule Inference.DependencyBoundaryTest do
     assert changelog =~ "## 0.4.0 - 2026-08-11"
     assert license =~ "MIT License"
     assert root_mix =~ ~s({:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false})
-    assert app_mix_loads_workspace_helper_conditionally?()
-  end
-
-  defp app_mix_loads_workspace_helper_conditionally? do
-    source = File.read!(Path.join(@repo_root, "apps/inference/mix.exs"))
-
-    source =~ "File.regular?(workspace_helper)" and
-      source =~ "Code.require_file(workspace_helper)"
   end
 
   defp assert_forbidden_deps_absent(deps, forbidden_deps) when is_list(deps) do

@@ -1,12 +1,3 @@
-# The workspace root vendors the shared dependency-source helper. It is
-# deliberately absent from the Hex archive, so load it only in a source
-# checkout.
-workspace_helper = Path.expand("../../build_support/dependency_sources.exs", __DIR__)
-
-if File.regular?(workspace_helper) and not Code.ensure_loaded?(DependencySources) do
-  Code.require_file(workspace_helper)
-end
-
 defmodule Inference.MixProject do
   use Mix.Project
 
