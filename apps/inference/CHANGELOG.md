@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh development dependency locks and validate the unchanged 0.4.0 package on Elixir 1.20/OTP 29. No runtime release required.
+
 ## 0.4.0 - 2026-08-11
 
 - Made managed Gemini stream startup and subscription atomic through
