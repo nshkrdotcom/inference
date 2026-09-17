@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 - 2026-09-17
 
-- Refresh development dependency locks and validate the unchanged 0.4.0 package on Elixir 1.20/OTP 29. No runtime release required.
+- Compatible with September 2026 model catalog updates across GeminiEx 0.18.0, CLI Subprocess Core 0.8.0, and Agent Session Manager 0.16.0.
+- Refreshed development dependency locks and validated on Elixir 1.20 / OTP 29 and Elixir 1.19 / OTP 28.
 
 ## 0.4.0 - 2026-08-11
 

@@ -33,7 +33,7 @@ Add `:inference` to the application that wants the shared contract:
 ```elixir
 def deps do
   [
-    {:inference, "~> 0.4.0"}
+    {:inference, "~> 0.4.1"}
   ]
 end
 ```
@@ -43,7 +43,7 @@ Provider-specific dependencies are opt-in. For example:
 ```elixir
 def deps do
   [
-    {:inference, "~> 0.4.0"},
+    {:inference, "~> 0.4.1"},
     {:gemini_ex, "..."},
     {:agent_session_manager, "..."}
   ]

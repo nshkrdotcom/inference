@@ -4,7 +4,7 @@ defmodule InferenceWorkspace.MixProject do
   def project do
     [
       app: :inference_workspace,
-      version: "0.4.0",
+      version: "0.4.1",
       apps_path: "apps",
       deps: deps(),
       aliases: aliases()
