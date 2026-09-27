@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 - 2026-09-26
+
+- Verify the ASM adapter with current GPT-6 Codex models and preserve large prompts across the Inference boundary for Core 0.9.1 stdin delivery.
+- Refresh the live ASM example default to GPT-6 Astra and the optional provider guidance for the current release train.
+
 ## 0.4.1 - 2026-09-17
 
 - Compatible with September 2026 model catalog updates across GeminiEx 0.18.0, CLI Subprocess Core 0.8.0, and Agent Session Manager 0.16.0.

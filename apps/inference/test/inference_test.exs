@@ -272,6 +272,22 @@ defmodule InferenceTest do
              Client.new!(adapter: Inference.Adapters.Mock, provider: :mock)
   end
 
+  test "ASM adapter preserves a large Codex prompt for the runtime transport" do
+    prompt = String.duplicate("context ", 9_000) <> "Say OK."
+
+    client =
+      Client.agent_session!(
+        adapter: Inference.Adapters.ASM,
+        provider: :codex,
+        model: "gpt-6-luna",
+        adapter_opts: [asm_module: FakeASM]
+      )
+
+    assert {:ok, %Response{}} = Inference.complete(client, prompt)
+    assert_received {:asm_query, :codex, forwarded, _opts}
+    assert forwarded == "user: " <> prompt
+  end
+
   test "agent_session/1 keeps an explicit admitted-kind list and still opts in" do
     assert {:ok, %Client{admitted_kinds: [:local_model_endpoint, :agent_session]}} =
              Client.agent_session(

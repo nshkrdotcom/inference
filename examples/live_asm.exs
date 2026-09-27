@@ -1,7 +1,10 @@
-Mix.install([
-  {:inference, path: Path.expand("../apps/inference", __DIR__)},
-  {:agent_session_manager, path: Path.expand("../../agent_session_manager", __DIR__)}
-])
+Mix.install(
+  [
+    {:inference, path: Path.expand("../apps/inference", __DIR__)},
+    {:agent_session_manager, path: Path.expand("../../agent_session_manager", __DIR__)}
+  ],
+  force: true
+)
 
 defmodule InferenceExamples.LiveASM do
   @moduledoc false
@@ -30,7 +33,7 @@ defmodule InferenceExamples.LiveASM do
         adapter: Inference.Adapters.ASM,
         admitted_kinds: [:agent_session],
         provider: provider,
-        model: System.get_env("INFERENCE_ASM_MODEL", "gpt-5.4"),
+        model: System.get_env("INFERENCE_ASM_MODEL", "gpt-6-astra"),
         defaults: [
           lane: lane!(System.get_env("INFERENCE_ASM_LANE", "auto"))
         ]

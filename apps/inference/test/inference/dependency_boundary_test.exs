@@ -58,7 +58,7 @@ defmodule Inference.DependencyBoundaryTest do
     refute asm_examples =~ ~s("gemini" => :gemini)
   end
 
-  test "0.4.1 release metadata and root invocation are complete" do
+  test "0.5.0 release metadata and root invocation are complete" do
     project = Mix.Project.config()
     package = project[:package]
     root_mix = File.read!(Path.join(@repo_root, "mix.exs"))
@@ -66,7 +66,7 @@ defmodule Inference.DependencyBoundaryTest do
     license = File.read!(Path.join(@repo_root, "apps/inference/LICENSE"))
 
     assert project[:app] == :inference
-    assert project[:version] == "0.4.1"
+    assert project[:version] == "0.5.0"
     assert project[:elixir] == "~> 1.18"
     assert package[:name] == :inference
     assert package[:licenses] == ["MIT"]
@@ -87,7 +87,7 @@ defmodule Inference.DependencyBoundaryTest do
     refute "build_support" in package[:files]
     assert project[:docs][:assets] == %{"assets" => "assets"}
     assert project[:docs][:homepage_url] == "https://hexdocs.pm/inference"
-    assert changelog =~ "## 0.4.1 - 2026-09-17"
+    assert changelog =~ "## 0.5.0 - 2026-09-26"
     assert license =~ "MIT License"
     assert root_mix =~ ~s({:ex_doc, "~> 0.38", only: [:dev, :test], runtime: false})
   end
