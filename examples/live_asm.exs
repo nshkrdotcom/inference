@@ -33,7 +33,7 @@ defmodule InferenceExamples.LiveASM do
         adapter: Inference.Adapters.ASM,
         admitted_kinds: [:agent_session],
         provider: provider,
-        model: System.get_env("INFERENCE_ASM_MODEL", "gpt-6-astra"),
+        model: System.get_env("INFERENCE_ASM_MODEL", "gpt-6.1-sol"),
         defaults: [
           lane: lane!(System.get_env("INFERENCE_ASM_LANE", "auto"))
         ]

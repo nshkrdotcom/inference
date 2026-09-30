@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 - 2026-09-29
+
+- Update all development dependency pins and lockfiles to current published releases.
+- Refresh optional provider guidance for Agent Session Manager 0.17.3 and ReqLLM 1.26.0, and default the live Codex example to GPT-6.1 Sol.
+
 ## 0.5.0 - 2026-09-26
 
 - Verify the ASM adapter with current GPT-6 Codex models and preserve large prompts across the Inference boundary for Core 0.9.1 stdin delivery.

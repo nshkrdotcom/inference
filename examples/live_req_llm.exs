@@ -8,7 +8,7 @@ end
 
 Mix.install([
   {:inference, path: Path.expand("../apps/inference", __DIR__)},
-  {:req_llm, "~> 1.10"}
+  {:req_llm, "~> 1.26.0"}
 ])
 
 defmodule InferenceExamples.LiveReqLLM do

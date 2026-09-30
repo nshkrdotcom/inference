@@ -63,7 +63,7 @@ elixir examples/asm_adapter/tools_unsupported.exs \
 
 ## ReqLLM Compatibility
 
-Installs the latest compatible Hex package, currently `req_llm ~> 1.10`.
+Installs the latest compatible Hex package, currently `req_llm ~> 1.26.0`.
 
 ```bash
 export GEMINI_API_KEY=... # or GOOGLE_API_KEY=...
