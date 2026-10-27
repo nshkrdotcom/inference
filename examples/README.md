@@ -53,17 +53,17 @@ providers but are deliberately refused by this semantic adapter.
 ```bash
 elixir examples/asm_adapter/text_only.exs \
   --provider codex \
-  --model gpt-5.4 \
+  --model gpt-6.1-sol \
   --prompt "Reply with exactly: INFERENCE_ASM_OK"
 
 elixir examples/asm_adapter/tools_unsupported.exs \
   --provider codex \
-  --model gpt-5.4
+  --model gpt-6.1-sol
 ```
 
 ## ReqLLM Compatibility
 
-Installs the latest compatible Hex package, currently `req_llm ~> 1.26.0`.
+Installs the latest compatible Hex package, currently `req_llm ~> 1.29.0`.
 
 ```bash
 export GEMINI_API_KEY=... # or GOOGLE_API_KEY=...

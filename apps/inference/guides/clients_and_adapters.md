@@ -46,7 +46,7 @@ Inference.Client.new!(
   adapter: Inference.Adapters.ASM,
   admitted_kinds: [:agent_session],
   provider: :codex,
-  model: "gpt-5.4"
+  model: "gpt-6.1-sol"
 )
 ```
 

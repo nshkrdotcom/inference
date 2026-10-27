@@ -72,7 +72,7 @@ defmodule InferenceExamples.LiveProviderRace do
           Inference.Client.agent_session!(
             adapter: Inference.Adapters.ASM,
             provider: :codex,
-            model: System.get_env("INFERENCE_RACE_CODEX_MODEL", "gpt-5.4"),
+            model: System.get_env("INFERENCE_RACE_CODEX_MODEL", "gpt-6.1-sol"),
             defaults: [lane: :sdk, run_deadline_ms: timeout_ms()]
           )
       }

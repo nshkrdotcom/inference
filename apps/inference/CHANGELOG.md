@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2 - 2026-10-27
+
+- Refresh workspace and package dependency locks to the latest stable Hex releases; direct development requirements are already current.
+- Update optional provider guidance for Agent Session Manager 0.17.4, Codex SDK 0.21.4, and ReqLLM 1.29.0.
+- Align workspace release metadata and live Codex examples with the package version and current GPT-6.1 Sol default.
+- Verify a live Inference → ASM → Codex SDK query using GPT-6.1 Sol at low effort.
+
 ## 0.5.1 - 2026-09-29
 
 - Update all development dependency pins and lockfiles to current published releases.

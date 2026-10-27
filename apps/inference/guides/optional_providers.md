@@ -8,7 +8,7 @@ dependencies. It does not mean this repository publishes a package per adapter.
 No extra dependency is required:
 
 ```elixir
-{:inference, "~> 0.5.1"}
+{:inference, "~> 0.5.2"}
 ```
 
 ## GeminiEx
@@ -16,7 +16,7 @@ No extra dependency is required:
 Install the direct Gemini API SDK in the consuming app:
 
 ```elixir
-{:inference, "~> 0.5.1"},
+{:inference, "~> 0.5.2"},
 {:gemini_ex, "..."}
 ```
 
@@ -29,8 +29,9 @@ route for this adapter.
 Install Agent Session Manager in the consuming app:
 
 ```elixir
-{:inference, "~> 0.5.1"},
-{:agent_session_manager, "~> 0.17.3"}
+{:inference, "~> 0.5.2"},
+{:agent_session_manager, "~> 0.17.4"},
+{:codex_sdk, "~> 0.21.4"} # for the Codex SDK lane
 ```
 
 Use `Inference.Adapters.ASM` with a provider atom or session reference.
@@ -86,7 +87,7 @@ overrides the runtime module.
 Install ReqLlmNext where broad hosted-provider coverage is needed:
 
 ```elixir
-{:inference, "~> 0.5.1"},
+{:inference, "~> 0.5.2"},
 {:req_llm_next, "..."}
 ```
 
@@ -98,8 +99,8 @@ Use `Inference.Adapters.ReqLlmNext`.
 ReqLlmNext for new broad hosted-provider work.
 
 ```elixir
-{:inference, "~> 0.5.1"},
-{:req_llm, "~> 1.26.0"}
+{:inference, "~> 0.5.2"},
+{:req_llm, "~> 1.29.0"}
 ```
 
 The compatibility adapter supports text generation, structured object

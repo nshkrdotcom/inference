@@ -29,13 +29,19 @@ completion-only execution.
 ```bash
 elixir examples/asm_adapter/text_only.exs \
   --provider codex \
-  --model gpt-5.4 \
+  --model gpt-6.1-sol \
   --prompt "Reply with exactly: INFERENCE_ASM_OK"
 
 elixir examples/asm_adapter/tools_unsupported.exs \
   --provider codex \
-  --model gpt-5.4
+  --model gpt-6.1-sol
 ```
+
+The 0.5.2 release was verified on 2026-10-27 with a live query through
+`Inference.Adapters.ASM`, ASM 0.17.4, and Codex SDK 0.21.4 on the `:sdk` lane.
+GPT-6.1 Sol at low reasoning effort returned exactly `INFERENCE_052_CODEX_OK`.
+This verifies the completion path; other provider paths were not live-tested
+for this dependency refresh.
 
 ## ReqLlmNext
 
@@ -48,7 +54,7 @@ elixir examples/live_reqllm_next.exs
 
 ## ReqLLM Compatibility
 
-Installs the latest compatible Hex package, currently `req_llm ~> 1.26.0`.
+Installs the latest compatible Hex package, currently `req_llm ~> 1.29.0`.
 
 ```bash
 export GEMINI_API_KEY=... # or GOOGLE_API_KEY=...

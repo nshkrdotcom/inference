@@ -19,10 +19,10 @@ them until their SDK feature manifests prove the completion-only contract.
 ```bash
 elixir examples/asm_adapter/text_only.exs \
   --provider codex \
-  --model gpt-5.4 \
+  --model gpt-6.1-sol \
   --prompt "Reply with exactly: INFERENCE_ASM_OK"
 
 elixir examples/asm_adapter/tools_unsupported.exs \
   --provider codex \
-  --model gpt-5.4
+  --model gpt-6.1-sol
 ```
