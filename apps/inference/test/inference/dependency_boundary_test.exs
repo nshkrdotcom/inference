@@ -87,7 +87,7 @@ defmodule Inference.DependencyBoundaryTest do
     refute "build_support" in package[:files]
     assert project[:docs][:assets] == %{"assets" => "assets"}
     assert project[:docs][:homepage_url] == "https://hexdocs.pm/inference"
-    assert changelog =~ "## 0.5.3 - 2026-11-25"
+    assert changelog =~ "## [0.5.3] - 2026-11-25"
     assert license =~ "MIT License"
     assert root_mix =~ ~s({:ex_doc, "~> 0.40.5", only: [:dev, :test], runtime: false})
   end
