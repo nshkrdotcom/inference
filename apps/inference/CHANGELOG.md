@@ -1,34 +1,34 @@
 # Changelog
 
-## 0.5.3 - 2026-11-25
+## [0.5.3] - 2026-11-25
 
 - Default the Anthropic ReqLLM adapter to Claude Haiku 5.5 and the live provider races to Claude Opus 5.5.
 - Refresh optional provider installation guidance for the November Claude release train and ReqLLM 1.31.0.
 - Update development dependency requirements and regenerate both Hex lockfiles.
 
-## 0.5.2 - 2026-10-27
+## [0.5.2] - 2026-10-27
 
 - Refresh workspace and package dependency locks to the latest stable Hex releases; direct development requirements are already current.
 - Update optional provider guidance for Agent Session Manager 0.17.4, Codex SDK 0.21.4, and ReqLLM 1.29.0.
 - Align workspace release metadata and live Codex examples with the package version and current GPT-6.1 Sol default.
 - Verify a live Inference → ASM → Codex SDK query using GPT-6.1 Sol at low effort.
 
-## 0.5.1 - 2026-09-29
+## [0.5.1] - 2026-09-29
 
 - Update all development dependency pins and lockfiles to current published releases.
 - Refresh optional provider guidance for Agent Session Manager 0.17.3 and ReqLLM 1.26.0, and default the live Codex example to GPT-6.1 Sol.
 
-## 0.5.0 - 2026-09-26
+## [0.5.0] - 2026-09-26
 
 - Verify the ASM adapter with current GPT-6 Codex models and preserve large prompts across the Inference boundary for Core 0.9.1 stdin delivery.
 - Refresh the live ASM example default to GPT-6 Astra and the optional provider guidance for the current release train.
 
-## 0.4.1 - 2026-09-17
+## [0.4.1] - 2026-09-17
 
 - Compatible with September 2026 model catalog updates across GeminiEx 0.18.0, CLI Subprocess Core 0.8.0, and Agent Session Manager 0.16.0.
 - Refreshed development dependency locks and validated on Elixir 1.20 / OTP 29 and Elixir 1.19 / OTP 28.
 
-## 0.4.0 - 2026-08-11
+## [0.4.0] - 2026-08-11
 
 - Made managed Gemini stream startup and subscription atomic through
   `start_stream/3`, eliminating the event-delivery race in the previous split
@@ -41,7 +41,7 @@
   tooling conditionally; the Hex archive now loads correctly without
   `build_support`.
 
-## 0.3.0 - 2026-07-27
+## [0.3.0] - 2026-07-27
 
 - Made the ASM adapter's completion, text, streaming, and structured-output
   capability claims derive from ASM's total common-feature manifest instead of
@@ -54,7 +54,7 @@
 - Updated the shared dependency-source helper to the five-provider release DAG
   and prepared the `0.3.0` package, migration guide, and release metadata.
 
-## 0.2.0 - 2026-07-27
+## [0.2.0] - 2026-07-27
 
 - Publish preflight now verifies the exact local sibling release on Hex, so an
   older package version cannot falsely satisfy release readiness. Nested
@@ -85,7 +85,7 @@
 - Added `AdapterCase.assert_response_format_contract/2` and
   `assert_capability_contract/2` conformance helpers.
 
-## 0.1.0 - 2026-07-13
+## [0.1.0] - 2026-07-13
 
 - Initial project skeleton.
 - Standardized Hex, HexDocs, changelog, and license release metadata.
@@ -109,3 +109,13 @@
 - Fixed ASM prompt override handling so compatibility wrappers can preserve raw
   prompt text without forwarding internal `:prompt` options to Agent Session
   Manager.
+
+[0.5.3]: https://github.com/nshkrdotcom/inference/compare/v0.5.2...v0.5.3
+[0.5.2]: https://github.com/nshkrdotcom/inference/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/nshkrdotcom/inference/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/nshkrdotcom/inference/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/nshkrdotcom/inference/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/nshkrdotcom/inference/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/nshkrdotcom/inference/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/nshkrdotcom/inference/compare/aa720a3d0e8307f1f67dd09929859f78c25aad14...v0.2.0
+[0.1.0]: https://github.com/nshkrdotcom/inference/commit/aa720a3d0e8307f1f67dd09929859f78c25aad14
