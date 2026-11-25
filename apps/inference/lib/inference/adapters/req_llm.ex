@@ -11,7 +11,7 @@ defmodule Inference.Adapters.ReqLLM do
   @default_models %{
     openai: "gpt-5.4-mini",
     gemini: "gemini-3.1-flash-lite-preview",
-    anthropic: "claude-haiku-4-5"
+    anthropic: "claude-haiku-5-5"
   }
 
   @env_vars %{

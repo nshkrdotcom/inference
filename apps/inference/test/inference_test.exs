@@ -547,6 +547,21 @@ defmodule InferenceTest do
     refute_received {:put_key, :google_api_key, _key}
   end
 
+  test "req llm adapter defaults to Haiku 5.5 and honors an explicit Anthropic model" do
+    client =
+      Client.new!(
+        adapter: Inference.Adapters.ReqLLM,
+        provider: :anthropic,
+        adapter_opts: [req_llm_module: FakeReqLLM]
+      )
+
+    assert {:ok, response} = Inference.complete(client, "hello")
+    assert response.raw.model_spec == %{provider: :anthropic, id: "claude-haiku-5-5"}
+
+    assert {:ok, response} = Inference.complete(client, "hello", model: "claude-sonnet-5-5")
+    assert response.raw.model_spec == %{provider: :anthropic, id: "claude-sonnet-5-5"}
+  end
+
   test "req llm adapter accepts an explicit env callback" do
     env = fn
       "GOOGLE_API_KEY" -> "env-key"

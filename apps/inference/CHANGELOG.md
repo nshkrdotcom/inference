@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3 - 2026-11-25
+
+- Default the Anthropic ReqLLM adapter to Claude Haiku 5.5 and the live provider races to Claude Opus 5.5.
+- Refresh optional provider installation guidance for the November Claude release train and ReqLLM 1.31.0.
+- Update development dependency requirements and regenerate both Hex lockfiles.
+
 ## 0.5.2 - 2026-10-27
 
 - Refresh workspace and package dependency locks to the latest stable Hex releases; direct development requirements are already current.

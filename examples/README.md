@@ -28,6 +28,10 @@ elixir examples/live_structured_provider_race.exs
 
 Both scripts force the Claude and Codex SDK lanes, use their existing local CLI
 authentication, and fail if any provider does not return the expected response.
+The local ASM and SDK checkouts must resolve to the same version of
+`cli_subprocess_core`. In a managed workspace, select the same local Core
+source for all three checkouts before running the race.
+The Claude lane defaults to Claude Opus 5.5 (`claude-opus-5-5`).
 Optional model overrides are `INFERENCE_RACE_GEMINI_MODEL`,
 `INFERENCE_RACE_CLAUDE_MODEL`, and `INFERENCE_RACE_CODEX_MODEL`.
 
@@ -63,7 +67,7 @@ elixir examples/asm_adapter/tools_unsupported.exs \
 
 ## ReqLLM Compatibility
 
-Installs the latest compatible Hex package, currently `req_llm ~> 1.29.0`.
+Installs the latest compatible Hex package, currently `req_llm ~> 1.31.0`.
 
 ```bash
 export GEMINI_API_KEY=... # or GOOGLE_API_KEY=...

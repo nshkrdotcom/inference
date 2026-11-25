@@ -8,7 +8,7 @@ dependencies. It does not mean this repository publishes a package per adapter.
 No extra dependency is required:
 
 ```elixir
-{:inference, "~> 0.5.2"}
+{:inference, "~> 0.5.3"}
 ```
 
 ## GeminiEx
@@ -16,7 +16,7 @@ No extra dependency is required:
 Install the direct Gemini API SDK in the consuming app:
 
 ```elixir
-{:inference, "~> 0.5.2"},
+{:inference, "~> 0.5.3"},
 {:gemini_ex, "..."}
 ```
 
@@ -29,12 +29,14 @@ route for this adapter.
 Install Agent Session Manager in the consuming app:
 
 ```elixir
-{:inference, "~> 0.5.2"},
-{:agent_session_manager, "~> 0.17.4"},
-{:codex_sdk, "~> 0.21.4"} # for the Codex SDK lane
+{:inference, "~> 0.5.3"},
+{:agent_session_manager, "~> 0.17.7"},
+{:claude_agent_sdk, "~> 0.21.2"} # for the Claude SDK lane
 ```
 
-Use `Inference.Adapters.ASM` with a provider atom or session reference.
+Use `Inference.Adapters.ASM` with a provider atom or session reference. For
+the Codex SDK lane, install a `codex_sdk` version that supports the same
+`cli_subprocess_core` version as the installed ASM release.
 
 ASM reports `:agent_session`, so clients must set
 `admitted_kinds: [:agent_session]`. Antigravity is the current Google
@@ -87,7 +89,7 @@ overrides the runtime module.
 Install ReqLlmNext where broad hosted-provider coverage is needed:
 
 ```elixir
-{:inference, "~> 0.5.2"},
+{:inference, "~> 0.5.3"},
 {:req_llm_next, "..."}
 ```
 
@@ -99,14 +101,16 @@ Use `Inference.Adapters.ReqLlmNext`.
 ReqLlmNext for new broad hosted-provider work.
 
 ```elixir
-{:inference, "~> 0.5.2"},
-{:req_llm, "~> 1.29.0"}
+{:inference, "~> 0.5.3"},
+{:req_llm, "~> 1.31.0"}
 ```
 
 The compatibility adapter supports text generation, structured object
 generation through `generate_object/4`, provider key aliasing for OpenAI,
 Gemini, and Anthropic, and portable tool structs that expose `:name`,
-`:description`, `:input_schema`, and `:run`.
+`:description`, `:input_schema`, and `:run`. For Anthropic, the adapter
+defaults to `claude-haiku-5-5` when neither the request nor the client
+chooses a model.
 
 For standalone clients, the compatibility adapter can still use provider-local
 env configured by the consuming application. For governed clients, env fallback

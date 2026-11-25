@@ -54,7 +54,7 @@ elixir examples/live_reqllm_next.exs
 
 ## ReqLLM Compatibility
 
-Installs the latest compatible Hex package, currently `req_llm ~> 1.29.0`.
+Installs the latest compatible Hex package, currently `req_llm ~> 1.31.0`.
 
 ```bash
 export GEMINI_API_KEY=... # or GOOGLE_API_KEY=...

@@ -62,7 +62,7 @@ defmodule InferenceExamples.LiveProviderRace do
           Inference.Client.agent_session!(
             adapter: Inference.Adapters.ASM,
             provider: :claude,
-            model: System.get_env("INFERENCE_RACE_CLAUDE_MODEL", "claude-opus-5"),
+            model: System.get_env("INFERENCE_RACE_CLAUDE_MODEL", "claude-opus-5-5"),
             defaults: [lane: :sdk, run_deadline_ms: timeout_ms()]
           )
       },
